@@ -1,19 +1,12 @@
-# Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models
+# [Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html)
+
+All data is now available at [Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing)! The paper was published at [WACV 2025](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html).
 
 ![Real-time Segmentation Trained by Larger Teacher Models overview](sam_guided_seg.png)
 
-Code for [Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models](https://arxiv.org/pdf/2408.10843). To recreate results from the paper go to [Quick Start](#quick-start) after [Installation](#installation). Currently only a portion of the data is available. The rest will be available at a later date.
+To recreate results from the paper go to [Quick Start](#quick-start) after [Installation](#installation). Currently only a portion of the data is available. The rest will be available at a later date.
 
 ## Results and checkpoints
-
-Currently only the AI For Mankind data result, shown here in the first table, can be replicated due to data availability. However, the rest of the pretrained models can also be used and tested with the linked data or available smoke images.
-
-SAM supervised dataset separated tests (Table 4. row 5.):
-
-| Teacher Model | Student Model | UAV mIoU | AI For Mankind mIoU |
-|---------------|---------------|----------|---------------------|
-| SAM | [PIDNet-S](https://drive.google.com/file/d/11QJKRjko9rIOpasyoo4Q9U6qzmRuAVg-/view?usp=drive_link) | 0.689 | 0.498 |
-
 
 Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):
 
@@ -29,6 +22,12 @@ Final SAM model with loss function ablation (Table 6. row 3.):
 | Teacher Model | Student Model | Test mIoU |
 |---------------|---------------|-----------|
 | SAM | [PIDNet-S with loss ablation](https://drive.google.com/file/d/13wmJ_onh9p3eS0zTK_TyBR0OeRPKuh3P/view?usp=sharing) | 0.633 |
+
+SAM supervised dataset separated tests (Table 4. row 5.):
+
+| Teacher Model | Student Model | UAV mIoU | AI For Mankind mIoU |
+|---------------|---------------|----------|---------------------|
+| SAM | [PIDNet-S](https://drive.google.com/file/d/11QJKRjko9rIOpasyoo4Q9U6qzmRuAVg-/view?usp=drive_link) | 0.689 | 0.498 |
 
 
 ## Installation
@@ -55,7 +54,7 @@ On Windows systems to enable CUDA support follow the [official Pytorch instructi
 
 ## Quick start
 
-Before running the python scripts follow the installation instructions in [Installation](#installation). Download the available [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing) and extract it to main directory.
+Before running the python scripts follow the installation instructions in [Installation](#installation). Download the reordered [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), the Subset-C from the [Boreal Forest Fire data](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and extract them to the same directory.
 
 All code can be run on a CPU with the argument `--device cpu`.
 
@@ -71,7 +70,6 @@ To evaluate only the SAM pseudo-labels:
 
 `python eval.py --eval-sam`
 
-
 ### Generate the wildfire masks with SAM
 
 #### Requirements: 
@@ -85,8 +83,6 @@ From the SAM repository: https://github.com/facebookresearch/segment-anything do
 To generate masks for custom data follow the data organisation described in [Model training](#model-training).
 
 ### Model training
-
-The training with full data is currently **unavailable** due to data availability but will be updated later. The training code is still provided as a reference and could be adapted for custom data. The training can also be tested with the AI For Mankind data.
 
 To train:
 
@@ -124,14 +120,22 @@ To generate model output visualisations:
 ## Citation
 
 ```
-@misc{pesonen2024uavrtseg,
-      title={Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models}, 
-      author={Julius Pesonen and Teemu Hakala and Väinö Karjalainen and Niko Koivumäki and Lauri Markelin and Anna-Maria Raita-Hakola and Juha Suomalainen and Ilkka Pölönen and Eija Honkavaara},
-      year={2024},
-      eprint={2408.10843},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2408.10843}, 
+@InProceedings{Pesonen_2025_WACV,
+    author    = {Pesonen, Julius and Hakala, Teemu and Karjalainen, V\"ain\"o and Koivum\"aki, Niko and Markelin, Lauri and Raita-Hakola, Anna-Maria and Suomalainen, Juha and P\"ol\"onen, Ilkka and Honkavaara, Eija},
+    title     = {Detecting Wildfires on UAVs with Real-Time Segmentation Trained by Larger Teacher Models},
+    booktitle = {Proceedings of the Winter Conference on Applications of Computer Vision (WACV)},
+    month     = {February},
+    year      = {2025},
+    pages     = {5166-5176}
+}
+
+@misc{Pesonen_2025_fairdata,
+author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and de Oliveira, Raquel Alves and others},
+title = {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
+howpublished = {\url{https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9}},
+month = {2},
+year = {2025},
+note = {National Land Survey of Finland, FGI Dept. of Remote sensing and photogrammetry}
 }
 ```
 
