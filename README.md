@@ -8,7 +8,7 @@ To recreate results from the paper go to [Quick Start](#quick-start) after [Inst
 
 ## Results and checkpoints
 
-Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):
+Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):Sano Eijalle Turre-ongelmasta
 
 | Teacher Model | Student Model | Test mIoU |
 |---------------|---------------|-----------|
@@ -57,6 +57,11 @@ On Windows systems to enable CUDA support follow the [official Pytorch instructi
 Before running the python scripts follow the installation instructions in [Installation](#installation). Download the reordered [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), Subset-C from the [Boreal Forest Fire data](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and extract them to the same directory.
 
 All code can be run on a CPU with the argument `--device cpu`.
+
+![BFF dataset examples](data_vis/example_imgs.png)
+|:--:| 
+| *Examples from the Boreal Forest Fire dataset with SAM generated masks.* |
+
 
 ### Recreate the results with pretrained models
 
