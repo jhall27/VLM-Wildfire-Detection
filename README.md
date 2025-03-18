@@ -8,6 +8,8 @@ To recreate results from the paper go to [Quick Start](#quick-start) after [Inst
 
 ## Results and checkpoints
 
+### [Inference video](https://www.youtube.com/shorts/xL4HofrKf2I)
+
 Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):Sano Eijalle Turre-ongelmasta
 
 | Teacher Model | Student Model | Test mIoU |
