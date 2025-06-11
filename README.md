@@ -10,7 +10,7 @@ To recreate results from the paper go to [Quick Start](#quick-start) after [Inst
 
 ### [Inference video](https://www.youtube.com/shorts/xL4HofrKf2I)
 
-Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):Sano Eijalle Turre-ongelmasta
+Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):
 
 | Teacher Model | Student Model | Test mIoU |
 |---------------|---------------|-----------|
@@ -56,7 +56,7 @@ On Windows systems to enable CUDA support follow the [official Pytorch instructi
 
 ## Quick start
 
-Before running the python scripts follow the installation instructions in [Installation](#installation). Download the reordered [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), Subset-C from the [Boreal Forest Fire data](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and extract them to the same directory.
+Before running the python scripts follow the installation instructions in [Installation](#installation). Download the reordered [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing) and the Subset-C from the [Boreal Forest Fire data](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and extract them to the same directory.
 
 All code can be run on a CPU with the argument `--device cpu`.
 
