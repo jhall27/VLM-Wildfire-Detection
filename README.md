@@ -1,6 +1,6 @@
 # [Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html)
 
-Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset is now available at [Fairdata](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and the Remixed Wildfire Smoke dataset on [Kaggle](https://www.kaggle.com/datasets/juliuspesonen/remixed-wildfire-smoke) or [Google drive](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), credits to [AI For Mankind and HPWREN](https://github.com/aiformankind/wildfire-smoke-dataset)! The paper was published at [WACV 2025](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html).
+[Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset](https://doi.org/10.1038/s41597-025-05634-0) is now available at [Fairdata](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and the Remixed Wildfire Smoke dataset on [Kaggle](https://www.kaggle.com/datasets/juliuspesonen/remixed-wildfire-smoke) or [Google drive](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), credits to [AI For Mankind and HPWREN](https://github.com/aiformankind/wildfire-smoke-dataset)! The paper was published at [WACV 2025](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html).
 
 ![Real-time Segmentation Trained by Larger Teacher Models overview](sam_guided_seg.png)
 
@@ -127,6 +127,7 @@ To generate model output visualisations:
 ## Citation
 
 ```
+% Original paper
 @InProceedings{Pesonen_2025_WACV,
     author    = {Pesonen, Julius and Hakala, Teemu and Karjalainen, V\"ain\"o and Koivum\"aki, Niko and Markelin, Lauri and Raita-Hakola, Anna-Maria and Suomalainen, Juha and P\"ol\"onen, Ilkka and Honkavaara, Eija},
     title     = {Detecting Wildfires on UAVs with Real-Time Segmentation Trained by Larger Teacher Models},
@@ -135,14 +136,23 @@ To generate model output visualisations:
     year      = {2025},
     pages     = {5166-5176}
 }
-
+% Dataset
+@article{Pesonen_2025_scidata
+    author=author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and Alves de Oliveira, Raquel and P\"ol\"onen, Ilkka and Honkavaara, Eija},
+    title= {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
+    year={2025},
+    month={2},
+    journal={Scientific Data},
+    volume={12},
+    doi={https://doi.org/10.1038/s41597-025-05634-0}
+}
 @misc{Pesonen_2025_fairdata,
-author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and de Oliveira, Raquel Alves and others},
-title = {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
-howpublished = {\url{https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9}},
-month = {2},
-year = {2025},
-note = {National Land Survey of Finland, FGI Dept. of Remote sensing and photogrammetry}
+    author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and Alves de Oliveira, Raquel and P\"ol\"onen, Ilkka and Honkavaara, Eija},
+    title = {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
+    howpublished = {\url{https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9}},
+    month = {2},
+    year = {2025},
+    note = {National Land Survey of Finland, FGI Dept. of Remote sensing and photogrammetry}
 }
 ```
 
