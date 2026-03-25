@@ -1,0 +1,31 @@
+{
+  "dataset_name": "Clemson Wildifre VLM (Combined Dataset)",
+  "sources": [
+    "AI For Mankind Data",
+    "Boreal Forest Fire Subset-C"
+  ],
+  "image_counts": {
+    "train": 3252,
+    "test": 80,
+    "valid": 701
+  },
+  "label_counts": {
+    "train": 3243,
+    "test": 80,
+    "valid": 701
+  },
+  "missing_labels": {
+    "train": 9,
+    "test": 0,
+    "valid": 0
+  },
+  "total_images": 4033,
+  "image_formats": {
+    ".jpg": 1472,
+    ".jpeg": 2561
+  },
+  "label_formats": {
+    ".txt": 1463,
+    ".xml": 2561
+  }
+}
