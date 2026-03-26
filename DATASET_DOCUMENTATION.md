@@ -6,9 +6,9 @@
 
 **Objective:** Document the combined dataset used for training and evaluating wildfire detection models.
 
-**Date Created:** [INSERT DATE]
+**Date Created:** March 23, 2026
 
-**Last Updated:** [INSERT DATE]
+**Last Updated:** March 25, 2026
 
 ---
 
@@ -16,15 +16,15 @@
 
 ### 2.1 Source 1: AI For Mankind Data
 - **Description:** [Describe the AI For Mankind dataset]
-- **Download Link:** [Provide link if available]
-- **Images:** [Count]
-- **License:** [License information]
+- **Download Link:** https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view
+- **Images:** 2561
+- **License:** Open Access
 
 ### 2.2 Source 2: Boreal Forest Fire Subset-C
 - **Description:** Subset-C from the Boreal Forest Fire dataset used in the WACV paper
-- **Download Link:** [Provide link if available]
-- **Images:** [Count]
-- **License:** [License information]
+- **Download Link:** https://etsin.fairdata.fi/dataset/1dce1023-493a-4d63-a906-f2a44f831898/data
+- **Images:** 1472
+- **License:** Creative Commons Attribution 4.0 (open access)
 
 ---
 
@@ -34,19 +34,17 @@
 
 | Split | Count | Percentage |
 |-------|-------|------------|
-| Train | [NUMBER] | [PERCENTAGE]% |
-| Test  | [NUMBER] | [PERCENTAGE]% |
-| Valid | [NUMBER] | [PERCENTAGE]% |
-| **Total** | **[TOTAL]** | **100%** |
+| Train | 3252  | 80.63 %    |
+| Test  | 80    | 1.98 %     |
+| Valid | 701   | 17.38 %    |
+| **Total** | 4033  | **100%**   |
 
 ### 3.2 Image Properties
 
-| Property | Value |
-|----------|-------|
-| Format | [e.g., JPEG, PNG] |
-| Average Resolution | [e.g., 1280x720] |
-| Color Channels | RGB (3 channels) |
-| Total File Size | [e.g., 50 GB] |
+| Property | Value       |
+|----------|-------------|
+| Format | [jpeg, jpg] |
+| Average Resolution | [2048x1080] |
 
 ### 3.3 Label Format
 

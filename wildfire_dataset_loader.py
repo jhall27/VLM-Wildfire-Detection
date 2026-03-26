@@ -4,14 +4,13 @@ Handles loading images and labels with proper validation and preprocessing
 """
 
 import os
-import cv2
+import cv2 #OperCV
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 from typing import Tuple, Optional, List, Dict
 import logging
-import json
 from xml.etree import ElementTree as ET
 
 # Setup logging
@@ -32,7 +31,7 @@ class WildfireDataset(Dataset):
         image_dir: str,
         label_dir: str,
         split: str = "train",
-        image_size: Tuple[int, int] = (768, 768), #best size since images are 1024 x 2048
+        image_size: Tuple[int, int] = (768, 768), #best size since images are 2048 x 1024
         normalize: bool = True,
         skip_missing: bool = True,
         verbose: bool = True, #When true, prints all the information
@@ -56,11 +55,7 @@ class WildfireDataset(Dataset):
         self.normalize = normalize
         self.skip_missing = skip_missing
         self.verbose = verbose
-        
-        # ImageNet normalization (optional)
-        self.mean = np.array([0.485, 0.456, 0.406])
-        self.std = np.array([0.229, 0.224, 0.225])
-        
+
         # Validate directories exist
         self._validate_directories()
         
@@ -115,11 +110,11 @@ class WildfireDataset(Dataset):
                         raise FileNotFoundError(f"No label found for {img_path.name}")
                 
                 # Quick validation that image can be loaded
-                img = cv2.imread(str(img_path))
+                img = cv2.imread(str(img_path)) #NumPy array with shape (1080, 2048, 3)
                 if img is None:
                     error_count += 1
                     if self.verbose:
-                        logger.error(f"  ✗ Failed to load image: {img_path.name}")
+                        logger.error(f"Failed to load image: {img_path.name}")
                     continue
                 
                 # Add to samples
@@ -161,7 +156,7 @@ class WildfireDataset(Dataset):
         split_dir = self.label_dir / self.split
         
         # Check for labels in order of preference
-        for ext in ['.png', '.txt', '.xml']:
+        for ext in ['.txt', '.xml']:
             label_path = split_dir / f"{label_base}{ext}"
             if label_path.exists():
                 return label_path
@@ -170,84 +165,97 @@ class WildfireDataset(Dataset):
     
     def _load_image(self, img_path: str) -> np.ndarray:
         """Load image and return as RGB array."""
-        img = cv2.imread(img_path)
+
+        #Format is BGR (default of OpenCV)
+        img = cv2.imread(img_path) #NumPy array with shape (1080, 2048, 3)
         if img is None:
             raise ValueError(f"Failed to load image: {img_path}")
         
         # Convert BGR to RGB
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
-        # Resize to target size
+        # Resize to target size (less data/still kind of precise)
+        # Resize takes (width, height)
         img = cv2.resize(img, (self.image_size[1], self.image_size[0]))
         
-        # Normalize to [0, 1]
+        # Normalize so pixel is between 0 - 1.0
         img = img.astype(np.float32) / 255.0
         
         return img
-    
+
     def _load_label(self, label_path: str) -> np.ndarray:
-        """
-        Load label file
-        Returns binary mask: 0 = background, 1 = fire/smoke
-        """
+        """Load (normalized bounding boxes) YOLO"""
         label_path = Path(label_path)
+        mask = np.zeros((self.image_size[0], self.image_size[1]), dtype=np.float32)
 
         if label_path.suffix == '.txt':
-
-            # Create empty mask and fill from annotations
-            mask = np.zeros((self.image_size[0], self.image_size[1]), dtype=np.float32)
-            
             try:
                 with open(label_path, 'r') as f:
                     lines = f.readlines()
-                
-                # Parse annotations (format depends on your data)
-                # Example: "class x1 y1 x2 y2" or "class x y w h"
+
                 for line in lines:
                     parts = line.strip().split()
                     if len(parts) >= 5:
-                        # Assuming format: class x1 y1 x2 y2 (normalized or pixel coords)
                         try:
-                            coords = [float(p) for p in parts[1:5]]
-                            # Draw rectangle on mask (adjust scaling if needed)
-                            x1, y1, x2, y2 = [int(c) for c in coords]
-                            mask[max(0, y1):min(self.image_size[0], y2), 
-                                  max(0, x1):min(self.image_size[1], x2)] = 1
+                            class_id = int(parts[0])
+                            cx = float(parts[1])  # Normalized center X
+                            cy = float(parts[2])  # Normalized center Y
+                            w = float(parts[3])  # Normalized width
+                            h = float(parts[4])  # Normalized height
+
+                            # Convert to pixel coordinates
+                            x1 = int((cx - w / 2) * self.image_size[1])
+                            y1 = int((cy - h / 2) * self.image_size[0])
+                            x2 = int((cx + w / 2) * self.image_size[1])
+                            y2 = int((cy + h / 2) * self.image_size[0])
+
+                            # Clip to image bounds
+                            x1 = max(0, x1)
+                            y1 = max(0, y1)
+                            x2 = min(self.image_size[1], x2)
+                            y2 = min(self.image_size[0], y2)
+
+                            # Draw rectangle on mask
+                            if x2 > x1 and y2 > y1:
+                                mask[y1:y2, x1:x2] = 1
                         except:
                             continue
             except Exception as e:
                 logger.warning(f"Error reading TXT label {label_path}: {e}")
 
-                # Return empty mask on error
-                mask = np.zeros((self.image_size[0], self.image_size[1]), dtype=np.float32)
-        
         elif label_path.suffix == '.xml':
-            # XML file (Pascal VOC format or similar)
-            mask = np.zeros((self.image_size[0], self.image_size[1]), dtype=np.float32)
-            
+            # XML format
             try:
                 tree = ET.parse(label_path)
                 root = tree.getroot()
-                
+
                 # Parse objects (adjust tag names based on your XML format)
                 for obj in root.findall('object'):
                     bndbox = obj.find('bndbox')
                     if bndbox is not None:
-                        x1 = int(bndbox.find('xmin').text)
-                        y1 = int(bndbox.find('ymin').text)
-                        x2 = int(bndbox.find('xmax').text)
-                        y2 = int(bndbox.find('ymax').text)
-                        
-                        # Draw rectangle on mask
-                        mask[max(0, y1):min(self.image_size[0], y2),
-                              max(0, x1):min(self.image_size[1], x2)] = 1
+                        try:
+                            x1 = int(float(bndbox.find('xmin').text))
+                            y1 = int(float(bndbox.find('ymin').text))
+                            x2 = int(float(bndbox.find('xmax').text))
+                            y2 = int(float(bndbox.find('ymax').text))
+
+                            # Clip to image bounds
+                            x1 = max(0, x1)
+                            y1 = max(0, y1)
+                            x2 = min(self.image_size[1], x2)
+                            y2 = min(self.image_size[0], y2)
+
+                            # Draw rectangle on mask
+                            if x2 > x1 and y2 > y1:
+                                mask[y1:y2, x1:x2] = 1
+                        except:
+                            continue
             except Exception as e:
                 logger.warning(f"Error reading XML label {label_path}: {e}")
-                mask = np.zeros((self.image_size[0], self.image_size[1]), dtype=np.float32)
-        
+
         else:
-            raise ValueError(f"Unsupported label format: {label_path.suffix}")
-        
+            logger.warning(f"Unsupported label format: {label_path.suffix}")
+
         return mask
     
     def __len__(self) -> int:
@@ -339,12 +347,13 @@ if __name__ == "__main__":
     logger.info("="*60 + "\n")
     
     # Create datasets
+    # Num_workers change to 4+ for production
     dataloaders = create_dataloaders(
         image_dir="data/images",
         label_dir="data/labels",
         batch_size=4,
-        image_size=(1024, 1024),
-        num_workers=0,  # Change to 4+ for production
+        image_size=(768, 768),
+        num_workers=0,
     )
     
     # Test loading a batch
