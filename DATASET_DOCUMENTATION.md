@@ -1,285 +1,173 @@
-# Wildfire UAV Dataset Documentation
+# Wildfire Dataset Documentation
 
-## 1. Overview
+## Overview
 
-**Project:** Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models
+This file is just a summary of the dataset snapshot that is currently checked into the repo.
 
-**Objective:** Document the combined dataset used for training and evaluating wildfire detection models.
+For this project, `data/` is the main source of truth. I also updated `dataset_summary.json` so it matches the current checked-in files.
 
-**Date Created:** [INSERT DATE]
+One important note is that this looks like a smaller snapshot of the full combined wildfire dataset, not the complete final version.
 
-**Last Updated:** [INSERT DATE]
+## Intended Dataset Sources
 
----
+The project is meant to use data from:
 
-## 2. Dataset Sources
+- AI For Mankind wildfire smoke data
+- Boreal Forest Fire Subset-C
 
-### 2.1 Source 1: AI For Mankind Data
-- **Description:** [Describe the AI For Mankind dataset]
-- **Download Link:** [Provide link if available]
-- **Images:** [Count]
-- **License:** [License information]
+In the current repo, though, the data looks like a reduced XML-based subset. The original Boreal folder structure is not fully present in the form described in the paper/release instructions.
 
-### 2.2 Source 2: Boreal Forest Fire Subset-C
-- **Description:** Subset-C from the Boreal Forest Fire dataset used in the WACV paper
-- **Download Link:** [Provide link if available]
-- **Images:** [Count]
-- **License:** [License information]
+## Current Checked-In Dataset
 
----
+Current layout:
 
-## 3. Combined Dataset Statistics
-
-### 3.1 Image Counts
-
-| Split | Count | Percentage |
-|-------|-------|------------|
-| Train | [NUMBER] | [PERCENTAGE]% |
-| Test  | [NUMBER] | [PERCENTAGE]% |
-| Valid | [NUMBER] | [PERCENTAGE]% |
-| **Total** | **[TOTAL]** | **100%** |
-
-### 3.2 Image Properties
-
-| Property | Value |
-|----------|-------|
-| Format | [e.g., JPEG, PNG] |
-| Average Resolution | [e.g., 1280x720] |
-| Color Channels | RGB (3 channels) |
-| Total File Size | [e.g., 50 GB] |
-
-### 3.3 Label Format
-
-| Property | Value |
-|----------|-------|
-| Label Type | [Pixel-wise masks / Bounding boxes / Polygons] |
-| Format | [e.g., PNG, TXT] |
-| Classes | Fire / Smoke / Background |
-| Annotation Tool | [Tool used for annotation] |
-
----
-
-## 4. Data Organization
-
-### 4.1 Directory Structure
-
-```
+```text
 data/
 ├── images/
-│   ├── train/          (X images)
-│   ├── test/           (X images)
-│   └── valid/          (X images)
+│   ├── train
+│   ├── valid
+│   └── test
 ├── labels/
-│   ├── train/          (X labels)
-│   ├── test/           (X labels)
-│   └── valid/          (X labels)
-├── manual_masks/       (Optional: ground truth masks)
-└── sam_masks/          (Optional: SAM pseudo-labels)
+│   ├── train
+│   ├── valid
+│   └── test
+├── sam_masks/
+│   ├── train
+│   ├── valid
+│   └── test
+└── manual_masks/
+    └── test
 ```
 
-### 4.2 Sample File Names
+Current split counts:
 
-**Image:** `karkkila_DJI_0008_frame48.jpg`
-**Label:** `karkkila_DJI_0008_frame48.png` (or `.txt`)
+| Split | Images | Labels | SAM Masks | Manual Masks |
+|-------|--------|--------|-----------|--------------|
+| Train | 2068 | 2068 | 2068 | 0 |
+| Valid | 453 | 453 | 453 | 0 |
+| Test | 40 | 40 | 40 | 40 |
+| Total | 2561 | 2561 | 2561 | 40 |
 
----
+So right now:
 
-## 5. Data Exploration Results
+- train and valid use SAM masks
+- manual masks are only present for test
 
-### 5.1 Sample Images
+## File Formats
 
-[INSERT IMAGE: dataset_samples.png]
+Observed in the current snapshot:
 
-*Figure 1: Sample images and corresponding labels from train, test, and valid splits*
+- image format: `.jpeg`
+- label format: `.xml`
+- SAM mask format: `.png`
+- manual mask format: `.png`
 
-### 5.2 Class Distribution
+Images I checked were RGB and mostly `640 x 480`.
 
-| Class | Count | Percentage |
-|-------|-------|------------|
-| Background | [NUMBER] | [PERCENTAGE]% |
-| Smoke | [NUMBER] | [PERCENTAGE]% |
-| Fire | [NUMBER] | [PERCENTAGE]% |
+The training code resizes images and masks to `1080 x 1920`.
 
-**Note:** [Any class imbalance issues? Discuss here]
+Example filenames:
 
----
+- image: `10_117.jpeg`
+- label: `10_117.xml`
+- SAM mask: `10_117.png`
 
-## 6. Data Quality Issues
+## How The Labels Are Used
 
-### 6.1 Missing Files
+The current repo uses:
 
-- **Missing Labels:** [NUMBER] images are missing corresponding labels
-- **Missing Images:** [NUMBER] labels are missing corresponding images
-- **Affected Splits:** [Which splits are affected?]
+- XML bounding boxes in `data/labels/*`
+- SAM-generated masks in `data/sam_masks/*`
+- manual masks in `data/manual_masks/test`
 
-### 6.2 Weak Annotations
+So the flow is:
 
-- [Describe any weakly labeled samples]
-- [Examples of ambiguous annotations]
+1. start with bounding boxes
+2. generate pseudo-label masks with SAM
+3. train PIDNet on those masks
+4. evaluate on manual masks where available
 
-### 6.3 Corrupted Files
+Only XML labels are checked in right now, even though the code still supports TXT labels for other dataset versions.
 
-- **Count:** [NUMBER]
-- **Details:** [List corrupted files if few, or describe pattern]
+## Split Usage
 
-### 6.4 Preprocessing Issues
+### Train
 
-- [Any images with unusual colors/brightness?]
-- [Any extreme resolutions or aspect ratios?]
-- [Any metadata issues?]
+- purpose: model training
+- supervision: SAM masks
+- count: 2068
 
----
+### Valid
 
-## 7. Data Preprocessing and Normalization
+- purpose: validation during training
+- supervision: SAM masks
+- count: 453
 
-### 7.1 Image Preprocessing
+### Test
 
-- **Resizing:** [e.g., 1024x1024, or resize_to_fit=True]
-- **Normalization:** [Mean/Std used for normalization]
-- **Augmentation:** [Data augmentation techniques applied during training]
+- purpose: final evaluation
+- supervision available: SAM masks + manual masks
+- count: 40
 
-### 7.2 Label Preprocessing
+## Data Quality Notes
 
-- **Binarization:** [For binary segmentation: fire vs. non-fire]
-- **Resizing:** [Labels resized to match images]
-- **Encoding:** [How classes are encoded (0=background, 1=smoke, 2=fire, etc.)]
+Things that seem okay:
 
----
+- image, label, and SAM-mask counts match in the current snapshot
+- sample images open correctly
+- the current summary file now matches the data that is actually in the repo
 
-## 8. Data Loader Verification
+Things that are still limited:
 
-### 8.1 Verification Steps Taken
+- only the test split has manual masks
+- source separation is not preserved clearly, so it is hard to tell which samples came from Boreal vs AI For Mankind
+- weak supervision means the SAM masks can still be noisy, especially around boundaries or hard smoke cases
 
-- [x] Loaded sample images successfully
-- [x] Verified label dimensions match image dimensions
-- [x] Checked for missing files
-- [ ] Verified preprocessing is correct
-- [ ] Checked for memory leaks in data loader
+## Preprocessing In The Baseline
 
-### 8.2 Test Runs
+From the current training loader:
 
-**Test Case 1: Load single image with label**
-```python
-# Result: PASSED / FAILED
-# Details: [Any issues encountered?]
-```
+- images are loaded as RGB
+- training uses augmentations like crop, flip, rotation, perspective, blur, grayscale, invert, sharpness, and color jitter
+- images and masks are resized to `1080 x 1920`
+- images are normalized with ImageNet mean/std
+- masks are converted into binary masks
+- boundary maps are built from masks using Canny edges and dilation
 
-**Test Case 2: Load batch of 16 images**
-```python
-# Result: PASSED / FAILED
-# Details: [Any issues encountered?]
-```
+## What Was Verified
 
-**Test Case 3: Data augmentation**
-```python
-# Result: PASSED / FAILED
-# Details: [Any issues encountered?]
-```
+Checked in the current repo:
 
----
+- `data/images/{train,valid,test}` exists
+- `data/labels/{train,valid,test}` exists
+- `data/sam_masks/{train,valid,test}` exists
+- `data/manual_masks/test` exists
+- file counts line up for the checked snapshot
+- sample images load as RGB and look consistent
 
-## 9. Dataset Splits and Usage
+Not fully checked in detail:
 
-### 9.1 Training Set (Train Split)
+- full corruption scan of every file
+- per-sample source mapping
+- full visual inspection of every generated mask
 
-- **Purpose:** Model training
-- **Images:** [COUNT]
-- **Characteristics:** [Any specific characteristics or domain?]
+## Suggested Next Cleanup Steps
 
-### 9.2 Validation Set (Valid Split)
+If we want to improve the dataset side later, the next useful steps would be:
 
-- **Purpose:** Hyperparameter tuning and early stopping
-- **Images:** [COUNT]
-- **Characteristics:** [Any specific characteristics?]
+- add a manifest showing whether each sample is from Boreal or AI For Mankind
+- add a script to verify exact one-to-one filename matching across images, labels, SAM masks, and manual masks
+- export a few sample visual checks showing image, box, SAM mask, and manual mask together
+- sync the full intended combined dataset if that is needed for later experiments
 
-### 9.3 Test Set (Test Split)
-
-- **Purpose:** Final evaluation and results reporting
-- **Images:** [COUNT]
-- **Characteristics:** [Any specific characteristics?]
-
----
-
-## 10. Known Limitations
-
-1. [Limitation 1: e.g., limited night-time fire samples]
-2. [Limitation 2: e.g., only UAV-based imagery, no ground cameras]
-3. [Limitation 3: e.g., certain geographic regions under-represented]
-
----
-
-## 11. Reproducing the Dataset
-
-### 11.1 Download Instructions
+## Basic Reproduction Workflow
 
 ```bash
-# Step 1: Download AI For Mankind Data
-# [Provide download command or link]
-
-# Step 2: Download Boreal Forest Fire Subset-C
-# [Provide download command or link]
-
-# Step 3: Extract to the same directory
-unzip ai_for_mankind_data.zip
-unzip boreal_forest_fire_subset_c.zip
-
-# Step 4: Organize into data/ folder
-# [Provide organization script or instructions]
+python3 train.py --device cpu --epochs 1 --batch-size 1 --num-workers 0 --test-val --max-batches 2 --deterministic
+python3 eval.py --device cpu --single-model checkpoints/sam_sup_pidnet_s.pt --model-size s --num-workers 0 --max-batches 2 --deterministic
+python3 wildfire_dataset_loader.py
 ```
 
-### 11.2 Verification
+## Bottom Line
 
-Run the data exploration notebook to verify dataset integrity:
-
-```bash
-jupyter notebook data_exploration.ipynb
-```
-
----
-
-## 12. References and Acknowledgments
-
-- **Original Dataset Papers:**
-  - [AI For Mankind Paper/Link]
-  - [Boreal Forest Fire Paper: "Detecting Wildfires on UAVs with Real-time Segmentation..."]
-
-- **Data Providers:**
-  - AI For Mankind Team
-  - Boreal Forest Fire Dataset Authors
-
----
-
-## Appendix: Code for Data Exploration
-
-See `data_exploration.ipynb` for code to reproduce all analysis and statistics.
-
-### Quick Commands to Check Dataset
-
-```bash
-# Count train images
-ls data/images/train | wc -l
-
-# Count test images
-ls data/images/test | wc -l
-
-# Count valid images
-ls data/images/valid | wc -l
-
-# Check for missing labels
-for img in data/images/train/*; do 
-  base=$(basename "$img" .jpg); 
-  if [ ! -f "data/labels/train/${base}.png" ]; then 
-    echo "Missing label: $base"; 
-  fi; 
-done
-```
-
----
-
-**Document Status:** [Draft / In Progress / Complete]
-
-**Prepared By:** [Your Name]
-
-**Team Members:** [List team members]
-
-**Last Reviewed:** [Date]
+The dataset setup in this repo is usable for the baseline pipeline, and the docs now match the actual checked-in snapshot. The main remaining limitations are that the dataset snapshot is reduced and that the original source split is not clearly preserved per sample.

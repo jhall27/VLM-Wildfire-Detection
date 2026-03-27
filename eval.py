@@ -5,10 +5,9 @@ import numpy as np
 from datasets.segmentation_data import WFSeg
 import os
 from torch.utils.data import DataLoader
-from torchvision.transforms.functional import resize
 from pidnet_utils.configs import config
 import torch.nn.functional as F
-from models.pidnet import PIDNet, get_seg_model
+from models.pidnet import get_seg_model
 from pidnet_utils.criterion import BondaryLoss
 from pidnet_utils.utils import FullModel
 import einops
@@ -16,12 +15,12 @@ from torchmetrics.classification import BinaryJaccardIndex
 from itertools import cycle
 from torcheval.metrics.functional import binary_precision, binary_recall, binary_accuracy, binary_f1_score
 import pandas as pd
+from utils.experiment import ensure_dirs, get_metric_template, measure_inference_speed, save_run_config, seed_everything
 
 
 def eval(model, args, loader):
     model.to(args.device)
     model.eval()
-    mse_loss = torch.nn.MSELoss()
     total_loss = 0
     total_iou = 0
     total_precision = 0
@@ -39,6 +38,9 @@ def eval(model, args, loader):
                     exit()
             print('Saving output images to dir '+args.output_dir)
         for i, batch in enumerate(loader):
+            # Useful for fast checks when we do not want to run the whole split.
+            if args.max_batches and i >= args.max_batches:
+                break
             input = batch['img'].to(args.device)
             mask = batch['mask'].to(args.device)
             boundary = batch['boundary'].to(args.device)
@@ -46,7 +48,6 @@ def eval(model, args, loader):
                 _, outputs, acc, loss_list = model(input, mask, boundary, id=batch['id'])
             else:
                 _, outputs, acc, loss_list = model(input, mask, boundary)
-            #print(losses)
             loss = loss_list[0]
             acc = acc.mean()
             total_iou += acc.item()
@@ -55,9 +56,7 @@ def eval(model, args, loader):
             binary_gt = torch.flatten(mask)
             prec = precision(binary_mask_pred, binary_gt).item()
             total_precision += prec
-            #print(binary_mask_pred)
-            #print(binary_gt)
-            # Recall breaks with floats for whatever reason
+            # Recall was more stable here after casting to uint8.
             rec = recall(binary_mask_pred.to(torch.uint8), binary_gt.to(torch.uint8)).item()
             total_recall += rec
             rand = rand_ind(binary_mask_pred, binary_gt).item()
@@ -68,9 +67,7 @@ def eval(model, args, loader):
             # Generate outputs
             if args.vis_val:
                 plot_outputs(i, batch, F.sigmoid(outputs[1]), args, re_s=False)
-            
-            #loss = mse_loss(output, batch['mask'].to(args.device))
-            #loss = mse_loss(output, resize(batch['mask'].to(args.device), [output[0].shape[-2],output[0].shape[-1]], antialias=True))
+
             total_loss += loss.item()
     
     loss_dict = {
@@ -93,6 +90,9 @@ def eval_sam(args, sam_loader, gt_loader):
     total_rand = 0
     total_f1 = 0
     for i, (sam_batch, gt_batch) in enumerate(zip(cycle(sam_loader), gt_loader)):
+        # Same batch limiter as the student eval path.
+        if args.max_batches and i >= args.max_batches:
+            break
         sam_mask = sam_batch['mask']
         gt_mask = gt_batch['mask']
         total_iou += iou(sam_mask, gt_mask).item()
@@ -101,9 +101,6 @@ def eval_sam(args, sam_loader, gt_loader):
         binary_gt = torch.flatten(gt_mask)
         prec = precision(binary_mask_pred, binary_gt).item()
         total_precision += prec
-        #print(binary_mask_pred)
-        #print(binary_gt)
-        # Recall breaks with floats for whatever reason
         rec = recall(binary_mask_pred.to(torch.uint8), binary_gt.to(torch.uint8)).item()
         total_recall += rec
         rand = rand_ind(binary_mask_pred, binary_gt).item()
@@ -141,32 +138,29 @@ def dice(preds, gt):
 
 
 def eval_teacher(manual_loader, teacher_dir, args):
+    # Compare teacher masks directly against the manual masks.
     args.sup_dir = teacher_dir
     args.manual_masks = False
     args.eval_snake = True
     teacher_mask_set = WFSeg(args.data_dir, args.mode, manual_masks=False, boundary=True, args=args)
     teacher_loader = DataLoader(teacher_mask_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-    #print(len(teacher_loader))
     loss_dict = eval_sam(args, teacher_loader, manual_loader)
     return loss_dict
 
 
 def main():
     args = get_args()
+    ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
+    seed_everything(args.seed, deterministic=args.deterministic)
+    save_run_config(args, os.path.join(args.log_dir, "eval_config.json"))
     print(args)
-    np.random.seed(42)
-    # Option for evaluating sam masks with a separate loader
+    # Eval is simpler to manage one image at a time.
     args.batch_size = 1
     loss_list = []
-    
-    #eval_set = WFSeg(args.data_dir, args.mode, manual_masks=True, boundary=True, args=args)
-    #args.eval_dir = 'uav_manual'
-    #uav_set = WFSeg(args.data_dir, args.mode, manual_masks=True, boundary=True, args=args)
-    #args.eval_dir = 'wf_manual'
+
     wf_set = WFSeg(args.data_dir, args.mode, manual_masks=True, boundary=True, args=args)
 
     sets = [(wf_set,'AI For Mankind data')]
-    #print(len(eval_loader))
 
     if len(args.single_model) == 0:
         teachers = [
@@ -177,14 +171,12 @@ def main():
 
     for set, name in sets[:1]:
         eval_loader = DataLoader(set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-        #print(len(eval_loader))
         for teacher_dir in teachers:
             args.exp = teacher_dir
             losses = {'dataset':name}
             losses.update(eval_teacher(eval_loader, teacher_dir, args))
             print(teacher_dir)
             print(losses)
-            #losses['model'] = teacher_dir
             loss_list.append(losses)
     
     # Tuple: (exp_name, pidnet_size)
@@ -208,12 +200,11 @@ def main():
             eval_sets = sets
         for set, name in eval_sets:
             eval_loader = DataLoader(set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-            #print(len(eval_loader))
             args.exp = student_model
             config.MODEL.NAME = 'pidnet_'+pidnet_size
             config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_'+pidnet_size.capitalize()+'_ImageNet.pth.tar'
             model = get_seg_model(cfg=config, imgnet_pretrained=True)
-            # Positive weighting for the segmentation loss
+            # Keep eval consistent with the student model setup.
             pos_weight = einops.rearrange(torch.tensor([1]), '(a b c) -> a b c', a=1, b=1)
             sem_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
             bd_criterion = BondaryLoss()
@@ -221,11 +212,19 @@ def main():
             model.to(args.device)
             print('Loading model weights')
             weights = torch.load(os.path.join(args.weight_dir, args.exp+'.pt'), map_location='cpu')
-            #print(weights)
             model.load_state_dict(weights, strict=False)
             
             losses = {'dataset':name}
             losses.update(eval(model, args, eval_loader))
+            # Use one batch from the eval loader to get a quick speed estimate.
+            speed_metrics = measure_inference_speed(
+                model,
+                next(iter(eval_loader)),
+                args.device,
+                warmup=args.speed_warmup,
+                steps=args.speed_steps,
+            )
+            losses.update(speed_metrics)
 
             print(student_model)
             print(losses)
@@ -233,7 +232,27 @@ def main():
             loss_list.append(losses)
 
     df = pd.DataFrame.from_dict(loss_list) 
-    df.to_csv('eval_results.csv', float_format='%.3f')
+    df.to_csv(args.metrics_output, float_format='%.3f', index=False)
+
+    template_rows = []
+    template_row = get_metric_template()
+    for losses in loss_list:
+        template = template_row.copy()
+        template.update({
+            "experiment": losses.get("model", ""),
+            "dataset_split": args.mode,
+            "teacher_model": "SAM",
+            "student_model": losses.get("model", ""),
+            "mIoU": f"{losses.get('mean_iou', ''):.3f}" if isinstance(losses.get("mean_iou"), float) else losses.get("mean_iou", ""),
+            "precision": f"{losses.get('mean_precision', ''):.3f}" if isinstance(losses.get("mean_precision"), float) else losses.get("mean_precision", ""),
+            "recall": f"{losses.get('mean_recall', ''):.3f}" if isinstance(losses.get("mean_recall"), float) else losses.get("mean_recall", ""),
+            "f1": f"{losses.get('mean_f1', ''):.3f}" if isinstance(losses.get("mean_f1"), float) else losses.get("mean_f1", ""),
+            "milliseconds_per_image": f"{losses.get('milliseconds_per_image', ''):.3f}" if isinstance(losses.get("milliseconds_per_image"), float) else losses.get("milliseconds_per_image", ""),
+            "fps": f"{losses.get('fps', ''):.3f}" if isinstance(losses.get("fps"), float) else losses.get("fps", ""),
+            "checkpoint": args.single_model or os.path.join(args.weight_dir, losses.get("model", "") + ".pt"),
+        })
+        template_rows.append(template)
+    pd.DataFrame(template_rows).to_csv(args.results_template, index=False)
 
 if __name__ == "__main__":
     main()

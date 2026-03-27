@@ -1,162 +1,167 @@
-# [Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html)
+# VLM Wildfire Detection Baseline
 
-[Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset](https://doi.org/10.1038/s41597-025-05634-0) is now available at [Fairdata](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and the Remixed Wildfire Smoke dataset on [Kaggle](https://www.kaggle.com/datasets/juliuspesonen/remixed-wildfire-smoke) or [Google drive](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing), credits to [AI For Mankind and HPWREN](https://github.com/aiformankind/wildfire-smoke-dataset)! The paper was published at [WACV 2025](https://openaccess.thecvf.com/content/WACV2025/html/Pesonen_Detecting_Wildfires_on_UAVs_with_Real-Time_Segmentation_Trained_by_Larger_WACV_2025_paper.html).
+This repo is our cleaned baseline for the paper *Detecting Wildfires on UAVs with Real-time Segmentation Trained by Larger Teacher Models* (WACV 2025).
 
-![Real-time Segmentation Trained by Larger Teacher Models overview](sam_guided_seg.png)
+The main point of this version is to have a working starting codebase that we can build on later for our own project ideas, especially the VLM part.
 
-To recreate results from the paper go to [Quick Start](#quick-start) after [Installation](#installation).
+## What This Repo Does
 
-## Results and checkpoints
+The baseline uses a teacher-student setup:
 
-### [Inference video](https://www.youtube.com/shorts/xL4HofrKf2I)
+- Teacher model: SAM
+- Student model: PIDNet
 
-Model comparison SAM supervised results (Table 2. Rows 5, 10, 15 and 20):
+The rough idea is:
 
-| Teacher Model | Student Model | Test mIoU |
-|---------------|---------------|-----------|
-| SAM           |               |   0.636   |
-| SAM           | [PIDNet-S](https://drive.google.com/file/d/11QJKRjko9rIOpasyoo4Q9U6qzmRuAVg-/view?usp=drive_link)      |   0.594   | 
-| SAM           | [PIDNet-M](https://drive.google.com/file/d/1ny_6mTnhPArqCnacGuidj9uc-tkTAokE/view?usp=drive_link)      |   0.606   | 
-| SAM           | [PIDNet-L](https://drive.google.com/file/d/1ACFYUGqBHWo4wfxKJUdr9BwSjdTI11i5/view?usp=drive_link)      |   0.594   | 
+1. use bounding boxes from the dataset
+2. turn those boxes into pseudo-label masks with SAM
+3. train PIDNet on those masks
+4. evaluate against manual masks when they are available
 
-Final SAM model with loss function ablation (Table 6. row 3.):
+## Main Files
 
-| Teacher Model | Student Model | Test mIoU |
-|---------------|---------------|-----------|
-| SAM | [PIDNet-S with loss ablation](https://drive.google.com/file/d/13wmJ_onh9p3eS0zTK_TyBR0OeRPKuh3P/view?usp=sharing) | 0.633 |
+- `train.py`: trains the segmentation model
+- `eval.py`: evaluates a checkpoint and writes metrics
+- `infer.py`: runs inference on one image and saves a predicted mask
+- `generate_pseudo_labels.py`: generates SAM masks from box labels
+- `wildfire_dataset_loader.py`: simpler loader for dataset checking
 
-SAM supervised dataset separated tests (Table 4. row 5.):
+## Dataset Layout
 
-| Teacher Model | Student Model | UAV mIoU | AI For Mankind mIoU |
-|---------------|---------------|----------|---------------------|
-| SAM | [PIDNet-S](https://drive.google.com/file/d/11QJKRjko9rIOpasyoo4Q9U6qzmRuAVg-/view?usp=drive_link) | 0.689 | 0.498 |
+The current checked-in dataset snapshot is under `data/`:
 
-
-## Installation
-
-The code has been developed in a Python 3.8 environment. For other Python versions package conflicts may occur. To create the environment with Conda (To install Conda follow the [official instructions](https://conda.io/projects/conda/en/latest/user-guide/install/index.html)):
-
-`git clone https://gitlab.com/fgi_nls/public/wildfire-real-time-segmentation.git`
-
-`cd wildfire-real-time-segmentation`
-
-`conda create -n wildfire_seg python=3.8`
-
-`conda activate wildfire_seg`
-
-Optional step required only if you want to generate masks with SAM:
-
-`pip install git+https://github.com/facebookresearch/segment-anything.git`
-
-Required for everything:
-
-`pip install -r requirements.txt`
-
-On Windows systems to enable CUDA support follow the [official Pytorch instructions](https://pytorch.org/get-started/locally/).
-
-## Quick start
-
-Before running the python scripts follow the installation instructions in [Installation](#installation). Download the reordered [AI For Mankind Data](https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view?usp=sharing) and the Subset-C from the [Boreal Forest Fire data](https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9) and extract them to the same directory.
-
-All code can be run on a CPU with the argument `--device cpu`.
-
-![BFF dataset examples](data_vis/example_imgs.png)
-|:--:| 
-| *Examples from the Boreal Forest Fire dataset with SAM generated masks.* |
-
-
-### Recreate the results with pretrained models
-
-Download the model checkpoints from [Results and checkpoints](#results-and-checkpoints) and place them in the checkpoints folder.
-
-Then to recreate individual model results:
-
-`python eval.py --single-model [model-checkpoint-path] --model-size [s,m,l]`
-
-To evaluate only the SAM pseudo-labels:
-
-`python eval.py --eval-sam`
-
-### Generate the wildfire masks with SAM
-
-#### Requirements: 
-
-From the SAM repository: https://github.com/facebookresearch/segment-anything download the trained model checkpoints and place them in the folder 'checkpoints'. For the study, we have used the ViT-H model.
-
-#### Generate masks:
-
-`python generate_pseudo_labels.py --model vit_h --dir data --mode test --output-dir pseudo_labels`
-
-To generate masks for custom data follow the data organisation described in [Model training](#model-training).
-
-### Model training
-
-To train:
-
-`python train.py`
-
-For training with custom data, organise the data according to the default dataset:
-
-```
-├── custom_data
-| ├── images
-| | ├── train
-| | ├── valid
-| | ├── test
-| ├── labels
-| | ├── train
-| | ├── valid
-| | ├── test
-| ├── sam_masks
-| | ├── train
-| | ├── valid
-| | ├── test
+```text
+data/
+├── images/
+│   ├── train
+│   ├── valid
+│   └── test
+├── labels/
+│   ├── train
+│   ├── valid
+│   └── test
+├── sam_masks/
+│   ├── train
+│   ├── valid
+│   └── test
+└── manual_masks/
+    └── test
 ```
 
-`python train.py --data-dir custom_data`
+Current snapshot summary:
 
-To generate the pseudo-labels with SAM refer to [Generate masks](#generate-masks).
+- train: 2068 images
+- valid: 453 images
+- test: 40 images
+- total: 2561 images
 
-### Visualise outputs
+Formats in the current repo snapshot:
 
-To generate model output visualisations:
+- images: `.jpeg`
+- labels: `.xml`
+- SAM masks: `.png`
+- manual masks: `.png`
 
-`python infer.py --input-image [image path]`
+One thing to keep in mind is that this looks like a reduced snapshot of the bigger combined dataset, not the full final version of everything.
 
+## Environment Setup
 
-## Citation
+The original project was built around Python 3.8, so that is still the safest version to use if possible.
 
-```
-% Original paper
-@InProceedings{Pesonen_2025_WACV,
-    author    = {Pesonen, Julius and Hakala, Teemu and Karjalainen, V\"ain\"o and Koivum\"aki, Niko and Markelin, Lauri and Raita-Hakola, Anna-Maria and Suomalainen, Juha and P\"ol\"onen, Ilkka and Honkavaara, Eija},
-    title     = {Detecting Wildfires on UAVs with Real-Time Segmentation Trained by Larger Teacher Models},
-    booktitle = {Proceedings of the Winter Conference on Applications of Computer Vision (WACV)},
-    month     = {February},
-    year      = {2025},
-    pages     = {5166-5176}
-}
-% Dataset
-@article{Pesonen_2025_scidata
-    author=author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and Alves de Oliveira, Raquel and P\"ol\"onen, Ilkka and Honkavaara, Eija},
-    title= {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
-    year={2025},
-    month={2},
-    journal={Scientific Data},
-    volume={12},
-    doi={https://doi.org/10.1038/s41597-025-05634-0}
-}
-@misc{Pesonen_2025_fairdata,
-    author = {Pesonen, Julius and Raita-Hakola, Anna-Maria and Joutsalainen, Jukka and Hakala, Teemu and Akhtar, Waleed and Karjalainen, Väinö and Koivumäki, Niko and Markelin, Lauri and Suomalainen, Juha and Alves de Oliveira, Raquel and P\"ol\"onen, Ilkka and Honkavaara, Eija},
-    title = {Boreal Forest Fire: UAV-collected Wildfire Detection and Smoke Segmentation Dataset},
-    howpublished = {\url{https://doi.org/10.23729/fd-72c6cf74-b8eb-3687-860d-bf93a1ab94c9}},
-    month = {2},
-    year = {2025},
-    note = {National Land Survey of Finland, FGI Dept. of Remote sensing and photogrammetry}
-}
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Acknowledgement
+Optional, only if you want to regenerate masks with SAM:
 
-* The inference model and its training implementation is based on and largely built on top of the code of [PIDNet](https://github.com/XuJiacong/PIDNet)
-* The introduced training method relies on supervision from [Segment Anything](https://github.com/facebookresearch/segment-anything)
+```bash
+pip install git+https://github.com/facebookresearch/segment-anything.git
+```
+
+## Quick Checks
+
+### Small training/validation check
+
+```bash
+python3 train.py --device cpu --epochs 1 --batch-size 1 --num-workers 0 --test-val --max-batches 2 --deterministic
+```
+
+This is just a quick smoke test to make sure the baseline pipeline runs.
+
+### Small evaluation check
+
+```bash
+python3 eval.py --device cpu --single-model checkpoints/sam_sup_pidnet_s.pt --model-size s --num-workers 0 --max-batches 2 --deterministic
+```
+
+This writes:
+
+- `eval_results.csv`
+- `weekly_results_template.csv`
+
+### Single-image inference
+
+```bash
+python3 infer.py --device cpu --model-size s --exp sam_sup_pidnet_s --input-image data/images/test/15_2161.jpeg
+```
+
+The output mask gets saved under `seg_outputs/`.
+
+## Training
+
+Default:
+
+```bash
+python3 train.py
+```
+
+Example:
+
+```bash
+python3 train.py \
+  --data-dir data \
+  --batch-size 4 \
+  --epochs 50 \
+  --device cuda \
+  --exp sam_sup_pidnet_s \
+  --model-size s \
+  --seed 42 \
+  --deterministic
+```
+
+Training saves:
+
+- log CSVs in `logs/`
+- config snapshots in `logs/`
+- checkpoints in `checkpoints/`
+
+## Evaluation
+
+Example:
+
+```bash
+python3 eval.py \
+  --device cpu \
+  --single-model checkpoints/sam_sup_pidnet_s.pt \
+  --model-size s \
+  --seed 42 \
+  --deterministic
+```
+
+Current evaluation metrics include:
+
+- mIoU
+- precision
+- recall
+- F1
+- Rand index / binary accuracy
+- inference speed
+- FPS
+
+## Notes
+
+- This repo is meant to be a clean baseline, not the final finished research system.
+- The current checked-in dataset does not keep explicit source tags for Boreal vs AI For Mankind samples.
+- Full paper-level reproduction would still require larger runs than the small smoke tests we used to verify the pipeline.

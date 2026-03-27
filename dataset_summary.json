@@ -1,31 +1,59 @@
 {
-  "dataset_name": "Clemson Wildifre VLM (Combined Dataset)",
-  "sources": [
-    "AI For Mankind Data",
+  "dataset_name": "VLM Wildfire Detection Baseline Snapshot",
+  "source_of_truth": "data/",
+  "sources_intended_by_project": [
+    "AI For Mankind wildfire smoke dataset",
     "Boreal Forest Fire Subset-C"
   ],
+  "snapshot_note": "This summary reflects the dataset currently present under data/ in the repository.",
   "image_counts": {
-    "train": 3252,
-    "test": 80,
-    "valid": 701
+    "train": 2068,
+    "valid": 453,
+    "test": 40
   },
   "label_counts": {
-    "train": 3243,
-    "test": 80,
-    "valid": 701
+    "train": 2068,
+    "valid": 453,
+    "test": 40
   },
+  "sam_mask_counts": {
+    "train": 2068,
+    "valid": 453,
+    "test": 40
+  },
+  "manual_mask_counts": {
+    "train": 0,
+    "valid": 0,
+    "test": 40
+  },
+  "total_images": 2561,
+  "total_labels": 2561,
+  "total_sam_masks": 2561,
+  "total_manual_masks": 40,
   "missing_labels": {
-    "train": 9,
-    "test": 0,
-    "valid": 0
+    "train": 0,
+    "valid": 0,
+    "test": 0
   },
-  "total_images": 4033,
+  "missing_sam_masks": {
+    "train": 0,
+    "valid": 0,
+    "test": 0
+  },
   "image_formats": {
-    ".jpg": 1472,
     ".jpeg": 2561
   },
   "label_formats": {
-    ".txt": 1463,
     ".xml": 2561
-  }
+  },
+  "sam_mask_formats": {
+    ".png": 2561
+  },
+  "manual_mask_formats": {
+    ".png": 40
+  },
+  "resolutions": {
+    "640x480": 2561
+  },
+  "primary_resolution": "640x480"
 }

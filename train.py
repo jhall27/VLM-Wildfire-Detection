@@ -6,26 +6,29 @@ import os
 import pandas as pd
 from utils.get_args import get_args
 from eval import eval
-from models.pidnet import PIDNet, get_seg_model
+from models.pidnet import get_seg_model
 from pidnet_utils.configs import config
-from torchvision.transforms.functional import resize
-import torch.nn.functional as F
-from pidnet_utils.criterion import CrossEntropy, OhemCrossEntropy, BondaryLoss
-from pidnet_utils.function import train, validate
-from pidnet_utils.utils import create_logger, FullModel
+from pidnet_utils.criterion import BondaryLoss
+from pidnet_utils.utils import FullModel
+from utils.experiment import ensure_dirs, save_run_config, seed_everything
 import einops
-import matplotlib.pyplot as plt
 
 
-def write_logs(epoch, val_loss, model, optim, args, miou=0):
+def write_logs(epoch, val_metrics, model, optim, args):
+    # Pull out the validation numbers we want to keep after each epoch.
+    val_loss = val_metrics['mean_val_loss']
+    miou = val_metrics['mean_iou']
+    precision = val_metrics.get('mean_precision', 0)
+    recall = val_metrics.get('mean_recall', 0)
+    f1 = val_metrics.get('mean_f1', 0)
     # Create a new log file if there isn't one
     try:
         if epoch == 0:
-            df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU'])
+            df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU', 'precision', 'recall', 'f1'])
         else:
             df = pd.read_csv(os.path.join(args.log_dir, args.exp+'.csv'))
     except:
-        df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU'])
+        df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU', 'precision', 'recall', 'f1'])
 
     # Save weights if the best loss is achieved
     if epoch == 0 or val_loss < np.amin(df['val_loss']):
@@ -36,12 +39,13 @@ def write_logs(epoch, val_loss, model, optim, args, miou=0):
         save_weights(model, optim, args, miou=True)
 
     # Add new loss to df
-    df.loc[len(df)] = [epoch, val_loss, miou]
+    df.loc[len(df)] = [epoch, val_loss, miou, precision, recall, f1]
     # Save logs
     df.to_csv(os.path.join(args.log_dir, args.exp+'.csv'), index=False)
 
 
 def save_weights(model, optim, args, miou=False):
+    # Save a second copy when the best mIoU improves.
     if miou:
         torch.save(model.state_dict(), os.path.join(args.weight_dir, args.exp+'_miou.pt'))
         torch.save(optim.state_dict(), os.path.join(args.weight_dir, args.exp+'_optim_miou.pt'))
@@ -59,7 +63,11 @@ def train(model, trainloader, valloader, args):
         loss = 0
         optim.zero_grad()
         for i, batch in enumerate(trainloader):
+            # For quick smoke tests we can skip the train loop and just check validation.
             if args.test_val:
+                break
+            # Limit batches if we only want a short test run.
+            if args.max_batches and i >= args.max_batches:
                 break
             input = batch['img'].to(args.device)
             if not args.boxsup:
@@ -70,9 +78,7 @@ def train(model, trainloader, valloader, args):
                 loss = model(input, labels=None, bd_gt=None, id=None, 
                              box=batch['box'].to(args.device), 
                              lab_img=batch['lab_img'].to(args.device))
-            #print(losses)
             loss = losses.mean()
-            #acc = acc.mean()
             
             last_loss = losses.item()
             epoch_loss += last_loss
@@ -92,18 +98,21 @@ def train(model, trainloader, valloader, args):
         print('Finished validating, validation loss: {:.7f}'.format(val_loss))
         print('Mean index over union: {:.7f}'.format(miou))
         # Write logs and save weights
-        write_logs(epoch, val_loss, model, optim, args, miou)
+        write_logs(epoch, loss_dict, model, optim, args)
 
 
 def main():
     args = get_args()
     args.output_dir = os.path.join(args.output_dir, args.exp)
+    # Make folders first so logs/checkpoints do not fail on a fresh clone.
+    ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
+    seed_everything(args.seed, deterministic=args.deterministic)
+    save_run_config(args, os.path.join(args.log_dir, args.exp + "_config.json"))
     print(args)
-    np.random.seed(42)
     config.MODEL.NAME = 'pidnet_'+args.model_size
     config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_'+args.model_size.capitalize()+'_ImageNet.pth.tar'
     model = get_seg_model(cfg=config, imgnet_pretrained=True)
-    # Positive weighting for the segmentation loss
+    # The smoke class is sparse, so use a positive class weight.
     pos_weight = einops.rearrange(torch.tensor([2.5]), '(a b c) -> a b c', a=1, b=1)
     sem_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     bd_criterion = BondaryLoss()
@@ -121,9 +130,7 @@ def main():
                     boundary=(not args.boxsup),
                      include_id=args.include_id,
                      args=args)
-    
-    # print(len(trainset))
-    # print(len(valset))
+
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     valloader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     if args.debug_val:
