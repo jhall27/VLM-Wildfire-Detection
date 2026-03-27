@@ -127,7 +127,6 @@ def generate_masks(args, predictor, mode='train'):
             cv2.imwrite(os.path.join(masks_dir, img_path.split('.')[0]+'.png'), mask_img)
 
 
-
 def visualise_random(args, mode='test', n=16):
     img_dir = os.path.join(args.dir, 'images', mode)
     box_dir = os.path.join(args.dir, 'labels', mode)
@@ -135,7 +134,15 @@ def visualise_random(args, mode='test', n=16):
     fig, ax = plt.subplots(16//4, 4)
 
     for i, mask_path in enumerate(np.random.choice(natsorted(os.listdir(masks_dir)), 16)):
-        img_path = os.path.join(img_dir, mask_path[:-4]+args.img_format)
+        # Try both jpg and jpeg
+        for ext in ['.jpg', '.jpeg']:
+            img_path = os.path.join(img_dir, mask_path[:-4]+ext)
+            if os.path.exists(img_path):
+                break
+        else:
+            print(f"Image not found for mask {mask_path}")
+            continue
+
         image = read_img(img_path)
         current_ax = ax[i//4, i%4]
         current_ax.imshow(image)
@@ -145,7 +152,10 @@ def visualise_random(args, mode='test', n=16):
             box = read_txt_box(os.path.join(box_dir, mask_path[:-4]+'.txt'), image)
         elif args.label_format == 'xml':
             box = read_xml_box(os.path.join(box_dir, mask_path[:-4]+'.xml'), image)
-        show_box(box, current_ax)
+        if box is not None:
+            show_box(box, current_ax)
+        else:
+            print(f"No bounding box found for {mask_path}, skipping box overlay.")
         current_ax.axis('off')
     plt.show()
 
