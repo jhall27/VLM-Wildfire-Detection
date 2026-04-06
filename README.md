@@ -25,6 +25,9 @@ The rough idea is:
 - `infer.py`: runs inference on one image and saves a predicted mask
 - `generate_pseudo_labels.py`: generates SAM masks from box labels
 - `wildfire_dataset_loader.py`: simpler loader for dataset checking
+- `vlm/build_manifest.py`: builds a small hard-case manifest for VLM tests
+- `vlm/run_qwen_pilot.py`: runs or stages the Qwen pilot prompts
+- `vlm/prompt_templates.py`: stores the prompt styles we compare
 
 ## Dataset Layout
 
@@ -159,6 +162,37 @@ Current evaluation metrics include:
 - Rand index / binary accuracy
 - inference speed
 - FPS
+
+## Part 3 VLM Pilot
+
+The repo now has a small VLM pilot workflow built around the `hard_cases/` folder.
+
+The three prompt styles are:
+
+- `yes_no`
+- `confidence_score`
+- `region_reasoning`
+
+Build the hard-case manifest:
+
+```bash
+python3 vlm/build_manifest.py
+```
+
+Create a dry-run results sheet:
+
+```bash
+python3 vlm/run_qwen_pilot.py --mode dry-run --prompt-style all
+```
+
+If Qwen and `transformers` are available locally, the same script can run the real pilot:
+
+```bash
+pip install -r requirements-vlm.txt
+python3 vlm/run_qwen_pilot.py --mode local --prompt-style all --device cpu
+```
+
+Dry-run and real-run outputs both go under `vlm_outputs/`.
 
 ## Notes
 
