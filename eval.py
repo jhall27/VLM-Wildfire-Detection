@@ -36,7 +36,7 @@ def eval(model, args, loader):
                     print('Warning: eval dir already exists.')
                     print('Overwrite with argument --force or -f')
                     exit()
-            print('Saving output images to dir '+args.output_dir)
+            print('Saving output images to dir ' + args.output_dir)
         for i, batch in enumerate(loader):
             # Useful for fast checks when we do not want to run the whole split.
             if args.max_batches and i >= args.max_batches:
@@ -63,21 +63,21 @@ def eval(model, args, loader):
             total_rand += rand
             f1 = dice(binary_mask_pred, binary_gt).item()
             total_f1 += f1
-            
+
             # Generate outputs
             if args.vis_val:
                 plot_outputs(i, batch, F.sigmoid(outputs[1]), args, re_s=False)
 
             total_loss += loss.item()
-    
+
     loss_dict = {
-        "model":args.exp,
-        "mean_val_loss":total_loss/(i+1),
-        "mean_iou":total_iou/(i+1),
-        "mean_rand":total_rand/(i+1),
-        "mean_precision":total_precision/(i+1),
-        "mean_recall":total_recall/(i+1),
-        "mean_f1":total_f1/(i+1)
+        "model": args.exp,
+        "mean_val_loss": total_loss / (i + 1),
+        "mean_iou": total_iou / (i + 1),
+        "mean_rand": total_rand / (i + 1),
+        "mean_precision": total_precision / (i + 1),
+        "mean_recall": total_recall / (i + 1),
+        "mean_f1": total_f1 / (i + 1)
     }
     return loss_dict
 
@@ -107,17 +107,17 @@ def eval_sam(args, sam_loader, gt_loader):
         total_rand += rand
         f1 = dice(binary_mask_pred, binary_gt).item()
         total_f1 += f1
-    
+
     loss_dict = {
-        "model":args.exp,
-        "mean_val_loss":0,
-        "mean_iou":total_iou/(i+1),
-        "mean_rand":total_rand/(i+1),
-        "mean_precision":total_precision/(i+1),
-        "mean_recall":total_recall/(i+1),
-        "mean_f1":total_f1/(i+1)
+        "model": args.exp,
+        "mean_val_loss": 0,
+        "mean_iou": total_iou / (i + 1),
+        "mean_rand": total_rand / (i + 1),
+        "mean_precision": total_precision / (i + 1),
+        "mean_recall": total_recall / (i + 1),
+        "mean_f1": total_f1 / (i + 1)
     }
-    
+
     return loss_dict
 
 
@@ -143,7 +143,8 @@ def eval_teacher(manual_loader, teacher_dir, args):
     args.manual_masks = False
     args.eval_snake = True
     teacher_mask_set = WFSeg(args.data_dir, args.mode, manual_masks=False, boundary=True, args=args)
-    teacher_loader = DataLoader(teacher_mask_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    teacher_loader = DataLoader(teacher_mask_set, batch_size=args.batch_size, shuffle=False,
+                                num_workers=args.num_workers)
     loss_dict = eval_sam(args, teacher_loader, manual_loader)
     return loss_dict
 
@@ -160,7 +161,7 @@ def main():
 
     wf_set = WFSeg(args.data_dir, args.mode, manual_masks=True, boundary=True, args=args)
 
-    sets = [(wf_set,'AI For Mankind data')]
+    sets = [(wf_set, 'AI For Mankind data')]
 
     if len(args.single_model) == 0:
         teachers = [
@@ -173,12 +174,12 @@ def main():
         eval_loader = DataLoader(set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
         for teacher_dir in teachers:
             args.exp = teacher_dir
-            losses = {'dataset':name}
+            losses = {'dataset': name}
             losses.update(eval_teacher(eval_loader, teacher_dir, args))
             print(teacher_dir)
             print(losses)
             loss_list.append(losses)
-    
+
     # Tuple: (exp_name, pidnet_size)
     if args.eval_sam:
         students = []
@@ -192,17 +193,16 @@ def main():
             ('loss_ablation_pidnet_s', 's'),
         ]
 
-    
     for student_model, pidnet_size in students:
         if student_model != 'sam_sup_pidnet_s':
             eval_sets = sets[:1]
-        else:  
+        else:
             eval_sets = sets
         for set, name in eval_sets:
             eval_loader = DataLoader(set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
             args.exp = student_model
-            config.MODEL.NAME = 'pidnet_'+pidnet_size
-            config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_'+pidnet_size.capitalize()+'_ImageNet.pth.tar'
+            config.MODEL.NAME = 'pidnet_' + pidnet_size
+            config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_' + pidnet_size.capitalize() + '_ImageNet.pth.tar'
             model = get_seg_model(cfg=config, imgnet_pretrained=True)
             # Keep eval consistent with the student model setup.
             pos_weight = einops.rearrange(torch.tensor([1]), '(a b c) -> a b c', a=1, b=1)
@@ -211,10 +211,10 @@ def main():
             model = FullModel(model, sem_criterion, bd_criterion)
             model.to(args.device)
             print('Loading model weights')
-            weights = torch.load(os.path.join(args.weight_dir, args.exp+'.pt'), map_location='cpu')
+            weights = torch.load(os.path.join(args.weight_dir, args.exp + '.pt'), map_location='cpu')
             model.load_state_dict(weights, strict=False)
-            
-            losses = {'dataset':name}
+
+            losses = {'dataset': name}
             losses.update(eval(model, args, eval_loader))
             # Use one batch from the eval loader to get a quick speed estimate.
             speed_metrics = measure_inference_speed(
@@ -231,7 +231,7 @@ def main():
             losses['model'] = student_model
             loss_list.append(losses)
 
-    df = pd.DataFrame.from_dict(loss_list) 
+    df = pd.DataFrame.from_dict(loss_list)
     df.to_csv(args.metrics_output, float_format='%.3f', index=False)
 
     template_rows = []
@@ -243,16 +243,23 @@ def main():
             "dataset_split": args.mode,
             "teacher_model": "SAM",
             "student_model": losses.get("model", ""),
-            "mIoU": f"{losses.get('mean_iou', ''):.3f}" if isinstance(losses.get("mean_iou"), float) else losses.get("mean_iou", ""),
-            "precision": f"{losses.get('mean_precision', ''):.3f}" if isinstance(losses.get("mean_precision"), float) else losses.get("mean_precision", ""),
-            "recall": f"{losses.get('mean_recall', ''):.3f}" if isinstance(losses.get("mean_recall"), float) else losses.get("mean_recall", ""),
-            "f1": f"{losses.get('mean_f1', ''):.3f}" if isinstance(losses.get("mean_f1"), float) else losses.get("mean_f1", ""),
-            "milliseconds_per_image": f"{losses.get('milliseconds_per_image', ''):.3f}" if isinstance(losses.get("milliseconds_per_image"), float) else losses.get("milliseconds_per_image", ""),
+            "mIoU": f"{losses.get('mean_iou', ''):.3f}" if isinstance(losses.get("mean_iou"), float) else losses.get(
+                "mean_iou", ""),
+            "precision": f"{losses.get('mean_precision', ''):.3f}" if isinstance(losses.get("mean_precision"),
+                                                                                 float) else losses.get(
+                "mean_precision", ""),
+            "recall": f"{losses.get('mean_recall', ''):.3f}" if isinstance(losses.get("mean_recall"),
+                                                                           float) else losses.get("mean_recall", ""),
+            "f1": f"{losses.get('mean_f1', ''):.3f}" if isinstance(losses.get("mean_f1"), float) else losses.get(
+                "mean_f1", ""),
+            "milliseconds_per_image": f"{losses.get('milliseconds_per_image', ''):.3f}" if isinstance(
+                losses.get("milliseconds_per_image"), float) else losses.get("milliseconds_per_image", ""),
             "fps": f"{losses.get('fps', ''):.3f}" if isinstance(losses.get("fps"), float) else losses.get("fps", ""),
             "checkpoint": args.single_model or os.path.join(args.weight_dir, losses.get("model", "") + ".pt"),
         })
         template_rows.append(template)
     pd.DataFrame(template_rows).to_csv(args.results_template, index=False)
+
 
 if __name__ == "__main__":
     main()

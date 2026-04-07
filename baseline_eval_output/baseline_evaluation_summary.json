@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-06T23:24:16.288728",
+  "timestamp": "2026-04-07T01:53:10.688988",
   "segmentation": {
     "model": "sam_sup_pidnet_s",
     "dataset": "AI For Mankind data",
@@ -10,16 +10,20 @@
       "mean_precision": 0.505,
       "mean_recall": 0.122,
       "mean_f1": 0.184,
-      "seconds_per_image": 2.179,
-      "milliseconds_per_image": 2179.205,
-      "fps": 0.459
+      "seconds_per_image": 2.53,
+      "milliseconds_per_image": 2530.176,
+      "fps": 0.395
     }
   },
   "vlm": {
-    "total_evaluations": 3,
+    "total_evaluations": 15,
     "unique_images": 1,
-    "smoke_detection_rate": 0.0,
-    "avg_confidence": 35.0
+    "smoke_detection_rate": 0.3333333333333333,
+    "avg_confidence": 63.0
+  },
+  "mask_qualitative": {
+    "images_visualised": 80,
+    "mean_iou_per_image": 0.5914967686752789
   },
   "output_files": {
     "tables": [
@@ -35,6 +39,14 @@
       "comprehensive_baseline_results.csv",
       "failure_*.csv",
       "success_*.csv"
+    ],
+    "masks": [
+      "masks/<id>_mask.png",
+      "overlays/<id>_overlay.png",
+      "qualitative/success/success_panel.png",
+      "qualitative/failure/failure_panel.png",
+      "masks_contact_sheet.png",
+      "per_image_iou.csv"
     ]
   }
 }
