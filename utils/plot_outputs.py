@@ -28,7 +28,7 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     # x0, y0 = box[0] - box[2]/2, box[1] - box[3]/2
     # w, h = box[2], box[3]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='red', facecolor=(0,0,0,0), lw=2))    
+    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='red', facecolor=(0,0,0,0), lw=2))
 
 
 def plot_outputs(i, batch, output, args, re_s=False):

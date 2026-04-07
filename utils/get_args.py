@@ -8,7 +8,7 @@ def get_args():
     parser.add_argument('--device', default='cuda', help='Device: cuda or cpu.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print more information.')
     parser.add_argument('--test-val', action='store_true')
-    parser.add_argument('--num-workers', default=8, help='Number of CPU cores to use for dataloader.')
+    parser.add_argument('--num-workers', default=8, type=int, help='Number of CPU cores to use for dataloader.')
     parser.add_argument('--output-dir', default='seg_outputs', help='Output dir for sample visualisation.')
     parser.add_argument('--vis-val', action='store_true', help='Visualise validation outputs')
     parser.add_argument('--log-dir', default='logs', help='Path for logging output folder. Default=logs')
@@ -30,7 +30,14 @@ def get_args():
     parser.add_argument('--eval-dir', default='manual_masks', help='Evaluation directory name used for testing.')
     parser.add_argument('--model-size', default='s', help='PIDNet model size. Options: s, m, l. Default=s')
     parser.add_argument('--single-model', default='', help='Option for evaluating a single model checkpoint.')
-    parser.add_argument('--input-image', default='data/images/test/karkkila_DJI_0008_frame48.jpg', help='Input image for visualisation.')
+    parser.add_argument('--input-image', default='data/images/test/15_2161.jpeg', help='Input image for visualisation.')
+    parser.add_argument('--seed', default=42, type=int, help='Random seed for reproducible experiments.')
+    parser.add_argument('--deterministic', action='store_true', help='Enable deterministic PyTorch/CuDNN settings.')
+    parser.add_argument('--metrics-output', default='eval_results.csv', help='CSV path for evaluation metrics.')
+    parser.add_argument('--results-template', default='weekly_results_template.csv', help='CSV path for the weekly results template.')
+    parser.add_argument('--speed-warmup', default=5, type=int, help='Warmup iterations for inference speed measurement.')
+    parser.add_argument('--speed-steps', default=20, type=int, help='Timed iterations for inference speed measurement.')
+    parser.add_argument('--max-batches', default=0, type=int, help='Limit the number of train/eval batches for smoke testing. 0 means no limit.')
 
     parser.add_argument(
                 "opts",
