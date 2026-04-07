@@ -6,22 +6,63 @@ This file is just a summary of the dataset snapshot that is currently checked in
 
 For this project, `data/` is the main source of truth. I also updated `dataset_summary.json` so it matches the current checked-in files.
 
-One important note is that this looks like a smaller snapshot of the full combined wildfire dataset, not the complete final version.
+**Date Created:** March 23, 2026
 
-## Intended Dataset Sources
+**Last Updated:** March 25, 2026
 
 The project is meant to use data from:
 
 - AI For Mankind wildfire smoke data
 - Boreal Forest Fire Subset-C
 
-In the current repo, though, the data looks like a reduced XML-based subset. The original Boreal folder structure is not fully present in the form described in the paper/release instructions.
+### 2.1 Source 1: AI For Mankind Data
+- **Description:** [Describe the AI For Mankind dataset]
+- **Download Link:** https://drive.google.com/file/d/1mbthNoeld-DnfrBxH8Ok9V1w5G52qC3P/view
+- **Images:** 2561
+- **License:** Open Access
 
-## Current Checked-In Dataset
+### 2.2 Source 2: Boreal Forest Fire Subset-C
+- **Description:** Subset-C from the Boreal Forest Fire dataset used in the WACV paper
+- **Download Link:** https://etsin.fairdata.fi/dataset/1dce1023-493a-4d63-a906-f2a44f831898/data
+- **Images:** 1472
+- **License:** Creative Commons Attribution 4.0 (open access)
 
 Current layout:
 
-```text
+## 3. Combined Dataset Statistics
+
+### 3.1 Image Counts
+
+| Split | Count | Percentage |
+|-------|-------|------------|
+| Train | 3252  | 80.63 %    |
+| Test  | 80    | 1.98 %     |
+| Valid | 701   | 17.38 %    |
+| **Total** | 4033  | **100%**   |
+
+### 3.2 Image Properties
+
+| Property | Value       |
+|----------|-------------|
+| Format | [jpeg, jpg] |
+| Average Resolution | [2048x1080] |
+
+### 3.3 Label Format
+
+| Property | Value |
+|----------|-------|
+| Label Type | [Pixel-wise masks / Bounding boxes / Polygons] |
+| Format | [e.g., PNG, TXT] |
+| Classes | Fire / Smoke / Background |
+| Annotation Tool | [Tool used for annotation] |
+
+---
+
+## 4. Data Organization
+
+### 4.1 Directory Structure
+
+```
 data/
 ├── images/
 │   ├── train
