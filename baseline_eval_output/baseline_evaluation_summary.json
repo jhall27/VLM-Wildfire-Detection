@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-06T23:24:16.288728",
+  "segmentation": {
+    "model": "sam_sup_pidnet_s",
+    "dataset": "AI For Mankind data",
+    "metrics": {
+      "mean_val_loss": 0.005,
+      "mean_iou": 0.119,
+      "mean_rand": 0.665,
+      "mean_precision": 0.505,
+      "mean_recall": 0.122,
+      "mean_f1": 0.184,
+      "seconds_per_image": 2.179,
+      "milliseconds_per_image": 2179.205,
+      "fps": 0.459
+    }
+  },
+  "vlm": {
+    "total_evaluations": 3,
+    "unique_images": 1,
+    "smoke_detection_rate": 0.0,
+    "avg_confidence": 35.0
+  },
+  "output_files": {
+    "tables": [
+      "segmentation_metrics_table.csv",
+      "vlm_metrics_table.csv",
+      "baseline_summary_table.csv"
+    ],
+    "figures": [
+      "segmentation_metrics_figure.png",
+      "vlm_results_figure.png"
+    ],
+    "data": [
+      "comprehensive_baseline_results.csv",
+      "failure_*.csv",
+      "success_*.csv"
+    ]
+  }
+}

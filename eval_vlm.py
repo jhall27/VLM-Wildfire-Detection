@@ -110,10 +110,16 @@ def generate_vlm_evaluation_report(vlm_df: pd.DataFrame, output_dir: Path = None
         "model_name": vlm_df['model_name'].iloc[0] if 'model_name' in vlm_df.columns and len(vlm_df) > 0 else None,
     }
 
-    # Save summary
+    # Save outputs
     if output_dir:
+        # Save summary JSON
         with open(output_dir / "vlm_evaluation_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
+        print(f"Saved summary: {output_dir / 'vlm_evaluation_summary.json'}")
+
+        # Save parsed results CSV
+        vlm_df.to_csv(output_dir / "vlm_results_parsed.csv", index=False)
+        print(f"Saved parsed results: {output_dir / 'vlm_results_parsed.csv'}")
 
     print(f"\n=== VLM Evaluation Summary ===")
     print(f"Total images evaluated: {summary['total_images']}")
