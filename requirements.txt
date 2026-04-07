@@ -10,3 +10,4 @@ yacs
 torchmetrics
 torcheval
 tqdm
+numpy
