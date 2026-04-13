@@ -108,6 +108,12 @@ def main():
     ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
     seed_everything(args.seed, deterministic=args.deterministic)
     save_run_config(args, os.path.join(args.log_dir, args.exp + "_config.json"))
+    
+    if args.label_mode == 'vlm':
+        args.sup_dir = 'vlm_masks'
+    elif args.label_mode == 'fused':
+        args.sup_dir = 'fused_masks'
+    
     print(args)
     config.MODEL.NAME = 'pidnet_'+args.model_size
     config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_'+args.model_size.capitalize()+'_ImageNet.pth.tar'
