@@ -210,8 +210,10 @@ def main():
             bd_criterion = BondaryLoss()
             model = FullModel(model, sem_criterion, bd_criterion)
             model.to(args.device)
+            # If a checkpoint path was passed directly, use it exactly as given.
+            checkpoint_path = args.single_model if args.single_model else os.path.join(args.weight_dir, args.exp + '.pt')
             print('Loading model weights')
-            weights = torch.load(os.path.join(args.weight_dir, args.exp + '.pt'), map_location='cpu')
+            weights = torch.load(checkpoint_path, map_location='cpu')
             model.load_state_dict(weights, strict=False)
 
             losses = {'dataset': name}

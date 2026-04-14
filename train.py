@@ -60,7 +60,6 @@ def train(model, trainloader, valloader, args):
     for epoch in range(args.epochs):
         epoch_loss = 0
         model.train()
-        loss = 0
         optim.zero_grad()
         for i, batch in enumerate(trainloader):
             # For quick smoke tests we can skip the train loop and just check validation.
@@ -73,14 +72,16 @@ def train(model, trainloader, valloader, args):
             if not args.boxsup:
                 mask = batch['mask'].to(args.device)
                 boundary = batch['boundary'].to(args.device)
+                # FullModel returns the training losses plus the segmentation outputs.
                 losses, _, acc, loss_list = model(input, mask, boundary)
+                loss = losses.mean()
             else:
+                # Box supervision is kept separate from the normal mask-based baseline.
                 loss = model(input, labels=None, bd_gt=None, id=None, 
                              box=batch['box'].to(args.device), 
                              lab_img=batch['lab_img'].to(args.device))
-            loss = losses.mean()
             
-            last_loss = losses.item()
+            last_loss = loss.item()
             epoch_loss += last_loss
             loss.backward()
             optim.step()
@@ -109,12 +110,15 @@ def main():
     seed_everything(args.seed, deterministic=args.deterministic)
     save_run_config(args, os.path.join(args.log_dir, args.exp + "_config.json"))
     
+    # Keep the original teacher labels as the default, then swap in the
+    # VLM-refined or fused labels only when we explicitly ask for them.
     if args.label_mode == 'vlm':
         args.sup_dir = 'vlm_masks'
     elif args.label_mode == 'fused':
         args.sup_dir = 'fused_masks'
     
     print(args)
+    # Model size stays configurable so we can compare S / M / L later.
     config.MODEL.NAME = 'pidnet_'+args.model_size
     config.MODEL.PRETRAINED = 'pretrained_models/imagenet/PIDNet_'+args.model_size.capitalize()+'_ImageNet.pth.tar'
     model = get_seg_model(cfg=config, imgnet_pretrained=True)
@@ -126,6 +130,7 @@ def main():
     model = FullModel(model, sem_criterion, bd_criterion)
     model.to(args.device)
     
+    # Train on the chosen label source (original SAM, VLM-filtered, or fused).
     trainset = WFSeg(root_dir=args.data_dir, 
                      mode='train',
                      boundary=(not args.boxsup),
