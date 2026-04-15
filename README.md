@@ -26,8 +26,12 @@ The rough idea is:
 - `generate_pseudo_labels.py`: generates SAM masks from box labels
 - `wildfire_dataset_loader.py`: simpler loader for dataset checking
 - `vlm/build_manifest.py`: builds a small hard-case manifest for VLM tests
+- `vlm/build_candidate_manifest.py`: builds teacher-mask candidate regions for VLM refinement
 - `vlm/run_qwen_pilot.py`: runs or stages the Qwen pilot prompts
 - `vlm/prompt_templates.py`: stores the prompt styles we compare
+- `generate_vlm_masks.py`: creates VLM-filtered training masks
+- `generate_fused_masks.py`: creates fused SAM+VLM masks
+- `run_ablation.py`: runs the baseline / VLM / fused ablation settings
 
 ## Dataset Layout
 
@@ -193,6 +197,53 @@ python3 vlm/run_qwen_pilot.py --mode local --prompt-style all --device cpu
 ```
 
 Dry-run and real-run outputs both go under `vlm_outputs/`.
+
+## Part 2 Teacher Candidates
+
+To build candidate regions directly from the teacher masks instead of only
+using hand-picked hard cases:
+
+```bash
+python3 vlm/build_candidate_manifest.py --splits train valid
+```
+
+This writes `vlm_outputs/teacher_candidate_manifest.csv` with:
+
+- the image path
+- the matching teacher mask
+- the split
+- a context crop around the teacher mask
+- an optional full-frame row for the same image
+
+You can then point the VLM runner at that manifest:
+
+```bash
+python3 vlm/run_qwen_pilot.py \
+  --manifest vlm_outputs/teacher_candidate_manifest.csv \
+  --mode local \
+  --prompt-style all \
+  --device cpu
+```
+
+## Part 4 Ablations
+
+The repo now includes a simple ablation runner for:
+
+- baseline only (`sam`)
+- baseline + simple VLM filtering (`vlm`)
+- baseline + fused refinement (`fused`)
+
+Quick smoke-test version:
+
+```bash
+python3 run_ablation.py --device cpu --epochs 1 --batch-size 1 --num-workers 0 --test-val --max-batches 2
+```
+
+Full training version:
+
+```bash
+python3 run_ablation.py --device mps --epochs 50 --batch-size 4 --num-workers 0
+```
 
 ## Notes
 

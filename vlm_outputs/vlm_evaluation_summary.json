@@ -1,7 +1,7 @@
 {
-  "total_images": 15,
-  "unique_images": 1,
-  "smoke_detection_rate": 0.3333333333333333,
-  "avg_confidence": 63.0,
+  "total_images": 90,
+  "unique_images": 15,
+  "smoke_detection_rate": 0.7333333333333333,
+  "avg_confidence": 78.75,
   "model_name": "Qwen/Qwen2.5-VL-3B-Instruct"
 }
