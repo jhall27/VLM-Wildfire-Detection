@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #from configs import config
-from torchmetrics.classification import BinaryJaccardIndex
+from torchmetrics.functional.classification import binary_jaccard_index
 
 from torchvision.transforms import v2 
 
@@ -35,7 +35,6 @@ class FullModel(nn.Module):
     self.sem_loss = sem_loss
     self.bd_loss = bd_loss
     self.use_box_sup = False
-    self.iou = BinaryJaccardIndex(zero_division=1.0e-9)
 
   def pixel_acc(self, pred, label):
     _, preds = torch.max(pred, dim=1)
@@ -65,17 +64,16 @@ class FullModel(nn.Module):
     if plot_outputs:
         return outputs
 
-    # acc  = self.pixel_acc(outputs[1], labels)
-    if len(torch.nonzero(labels)) < 1:
-        acc = torch.Tensor([1])
-        #print("got here!")
-    else:
-        acc = self.iou(preds=F.sigmoid(outputs[1]), target=labels)
-        if math.isnan(acc.item()):
-            print("Found nan in IoU calculation")
-            if id:
-                print(id)
-    #acc = None
+    # Stateless IoU: a stateful BinaryJaccardIndex on the module would accumulate
+    # across every training/val batch and mix epochs, making logged mIoU meaningless.
+    pred_prob = F.sigmoid(outputs[1])
+    acc = binary_jaccard_index(
+        pred_prob, labels, threshold=0.5, zero_division=1.0e-9
+    )
+    if math.isnan(acc.item()):
+        print("Found nan in IoU calculation")
+        if id:
+            print(id)
     loss_s0 = self.sem_loss(outputs[0], labels)
     loss_s = self.sem_loss(outputs[1], labels)
     loss_b = self.bd_loss(outputs[-1], bd_gt)

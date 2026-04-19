@@ -1,0 +1,2 @@
+week,experiment,dataset_split,teacher_model,student_model,epochs,mIoU,precision,recall,f1,milliseconds_per_image,fps,checkpoint,notes
+,sam_sup_pidnet_s_miou,test,SAM,sam_sup_pidnet_s_miou,,0.019,0.040,0.075,0.034,202.195,4.946,checkpoints/sam_sup_pidnet_s_miou.pt,

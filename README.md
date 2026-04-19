@@ -24,7 +24,7 @@ The rough idea is:
 - `eval.py`: evaluates a checkpoint and writes metrics
 - `infer.py`: runs inference on one image and saves a predicted mask
 - `generate_pseudo_labels.py`: generates SAM masks from box labels
-- `wildfire_dataset_loader.py`: simpler loader for dataset checking
+- `datasets/segmentation_data.py`: main segmentation dataset (`WFSeg`); see also `data_exploration.ipynb` for quick checks
 - `vlm/build_manifest.py`: builds a small hard-case manifest for VLM tests
 - `vlm/build_candidate_manifest.py`: builds teacher-mask candidate regions for VLM refinement
 - `vlm/run_qwen_pilot.py`: runs or stages the Qwen pilot prompts
@@ -32,6 +32,8 @@ The rough idea is:
 - `generate_vlm_masks.py`: creates VLM-filtered training masks
 - `generate_fused_masks.py`: creates fused SAM+VLM masks
 - `run_ablation.py`: runs the baseline / VLM / fused ablation settings
+
+Milestone checklist (what’s coded vs what’s still runs/report): see [`docs/TASK_CHECKLIST.md`](docs/TASK_CHECKLIST.md).
 
 ## Dataset Layout
 

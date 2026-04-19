@@ -21,12 +21,15 @@ from utils.experiment import ensure_dirs, get_metric_template, measure_inference
 def eval(model, args, loader):
     model.to(args.device)
     model.eval()
+    # One metric instance for the whole val pass; reset so we never mix train/val or runs.
+    val_jaccard = BinaryJaccardIndex(zero_division=1.0e-9).to(args.device)
+    val_jaccard.reset()
     total_loss = 0
-    total_iou = 0
     total_precision = 0
     total_recall = 0
     total_rand = 0
     total_f1 = 0
+    n_batches = 0
     with torch.no_grad():
         if args.vis_val:
             try:
@@ -45,12 +48,11 @@ def eval(model, args, loader):
             mask = batch['mask'].to(args.device)
             boundary = batch['boundary'].to(args.device)
             if args.include_id:
-                _, outputs, acc, loss_list = model(input, mask, boundary, id=batch['id'])
+                _, outputs, _, loss_list = model(input, mask, boundary, id=batch['id'])
             else:
-                _, outputs, acc, loss_list = model(input, mask, boundary)
+                _, outputs, _, loss_list = model(input, mask, boundary)
             loss = loss_list[0]
-            acc = acc.mean()
-            total_iou += acc.item()
+            val_jaccard.update(F.sigmoid(outputs[1]), mask)
 
             binary_mask_pred = torch.flatten(torch.round(F.sigmoid(outputs[1])))
             binary_gt = torch.flatten(mask)
@@ -69,33 +71,48 @@ def eval(model, args, loader):
                 plot_outputs(i, batch, F.sigmoid(outputs[1]), args, re_s=False)
 
             total_loss += loss.item()
+            n_batches += 1
+
+    if n_batches == 0:
+        return {
+            "model": args.exp,
+            "mean_val_loss": 0.0,
+            "mean_iou": 0.0,
+            "mean_rand": 0.0,
+            "mean_precision": 0.0,
+            "mean_recall": 0.0,
+            "mean_f1": 0.0,
+        }
+
+    mean_iou = val_jaccard.compute().item()
 
     loss_dict = {
         "model": args.exp,
-        "mean_val_loss": total_loss / (i + 1),
-        "mean_iou": total_iou / (i + 1),
-        "mean_rand": total_rand / (i + 1),
-        "mean_precision": total_precision / (i + 1),
-        "mean_recall": total_recall / (i + 1),
-        "mean_f1": total_f1 / (i + 1)
+        "mean_val_loss": total_loss / n_batches,
+        "mean_iou": mean_iou,
+        "mean_rand": total_rand / n_batches,
+        "mean_precision": total_precision / n_batches,
+        "mean_recall": total_recall / n_batches,
+        "mean_f1": total_f1 / n_batches,
     }
     return loss_dict
 
 
 def eval_sam(args, sam_loader, gt_loader):
-    iou = BinaryJaccardIndex(zero_division=1.0e-9)
-    total_iou = 0
+    jmetric = BinaryJaccardIndex(zero_division=1.0e-9)
+    jmetric.reset()
     total_precision = 0
     total_recall = 0
     total_rand = 0
     total_f1 = 0
+    n_batches = 0
     for i, (sam_batch, gt_batch) in enumerate(zip(cycle(sam_loader), gt_loader)):
         # Same batch limiter as the student eval path.
         if args.max_batches and i >= args.max_batches:
             break
         sam_mask = sam_batch['mask']
         gt_mask = gt_batch['mask']
-        total_iou += iou(sam_mask, gt_mask).item()
+        jmetric.update(sam_mask, gt_mask)
 
         binary_mask_pred = torch.flatten(sam_mask)
         binary_gt = torch.flatten(gt_mask)
@@ -107,15 +124,18 @@ def eval_sam(args, sam_loader, gt_loader):
         total_rand += rand
         f1 = dice(binary_mask_pred, binary_gt).item()
         total_f1 += f1
+        n_batches += 1
+
+    mean_iou = jmetric.compute().item() if n_batches else 0.0
 
     loss_dict = {
         "model": args.exp,
         "mean_val_loss": 0,
-        "mean_iou": total_iou / (i + 1),
-        "mean_rand": total_rand / (i + 1),
-        "mean_precision": total_precision / (i + 1),
-        "mean_recall": total_recall / (i + 1),
-        "mean_f1": total_f1 / (i + 1)
+        "mean_iou": mean_iou,
+        "mean_rand": total_rand / n_batches if n_batches else 0.0,
+        "mean_precision": total_precision / n_batches if n_batches else 0.0,
+        "mean_recall": total_recall / n_batches if n_batches else 0.0,
+        "mean_f1": total_f1 / n_batches if n_batches else 0.0,
     }
 
     return loss_dict
