@@ -245,6 +245,20 @@ Full training version:
 python3 run_ablation.py --device mps --epochs 50 --batch-size 4 --num-workers 0
 ```
 
+## Cluster Runs
+
+For Palmetto or another SLURM cluster, the repo now includes:
+
+- `cluster/palmetto_threshold_sweep.slurm` for threshold calibration
+- `cluster/palmetto_final_ablation.slurm` for the final baseline / VLM / fused runs
+
+Example submit commands:
+
+```bash
+sbatch cluster/palmetto_threshold_sweep.slurm
+sbatch cluster/palmetto_final_ablation.slurm
+```
+
 ## Notes
 
 - This repo is meant to be a clean baseline, not the final finished research system.

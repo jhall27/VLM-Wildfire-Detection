@@ -97,7 +97,14 @@ def aggregate_full_frame_rows(vlm_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def decide_refinement_action(row: pd.Series) -> Tuple[str, str]:
+def decide_refinement_action(
+    row: pd.Series,
+    accept_threshold: int = 70,
+    reject_threshold: int = 40,
+    region_accept_threshold: int = 60,
+    uncertain_low: int = 40,
+    uncertain_high: int = 70,
+) -> Tuple[str, str]:
     # These rules are intentionally simple for the first VLM-guided pass.
     yes_no_smoke = row.get("yes_no_smoke")
     confidence_label = str(row.get("confidence_label") or "").lower()
@@ -110,7 +117,7 @@ def decide_refinement_action(row: pd.Series) -> Tuple[str, str]:
     if (
         yes_no_smoke == 0
         and confidence_label in {"background", "cloud_or_fog", "uncertain", ""}
-        and (confidence_score is None or confidence_score <= 40)
+        and (confidence_score is None or confidence_score <= reject_threshold)
         and region_smoke == 0
     ):
         return "reject", "All full-frame prompts leaned away from smoke."
@@ -118,15 +125,15 @@ def decide_refinement_action(row: pd.Series) -> Tuple[str, str]:
     if (
         yes_no_smoke == 1
         and confidence_label == "smoke"
-        and (confidence_score or 0) >= 70
+        and (confidence_score or 0) >= accept_threshold
         and region_smoke == 1
-        and (region_confidence or 0) >= 60
+        and (region_confidence or 0) >= region_accept_threshold
     ):
         return "accept", "All full-frame prompts strongly supported smoke."
 
     if (
         confidence_label == "smoke"
-        and 40 <= (confidence_score or 0) < 70
+        and uncertain_low <= (confidence_score or 0) < uncertain_high
     ) or (
         region_smoke == 1
         and (region_stage == "early" or region_confounder in {"haze", "cloud", "fog"})
@@ -137,9 +144,30 @@ def decide_refinement_action(row: pd.Series) -> Tuple[str, str]:
     return "uncertain", "Signals were mixed, so the original teacher mask is kept."
 
 
-def build_refinement_table(vlm_df: pd.DataFrame) -> pd.DataFrame:
+def build_refinement_table(
+    vlm_df: pd.DataFrame,
+    accept_threshold: int = 70,
+    reject_threshold: int = 40,
+    region_accept_threshold: int = 60,
+    uncertain_low: int = 40,
+    uncertain_high: int = 70,
+) -> pd.DataFrame:
     aggregated = aggregate_full_frame_rows(vlm_df)
-    actions = aggregated.apply(decide_refinement_action, axis=1, result_type="expand")
+    actions = aggregated.apply(
+        decide_refinement_action,
+        axis=1,
+        result_type="expand",
+        accept_threshold=accept_threshold,
+        reject_threshold=reject_threshold,
+        region_accept_threshold=region_accept_threshold,
+        uncertain_low=uncertain_low,
+        uncertain_high=uncertain_high,
+    )
     aggregated["action"] = actions[0]
     aggregated["decision_reason"] = actions[1]
+    aggregated["accept_threshold"] = accept_threshold
+    aggregated["reject_threshold"] = reject_threshold
+    aggregated["region_accept_threshold"] = region_accept_threshold
+    aggregated["uncertain_low"] = uncertain_low
+    aggregated["uncertain_high"] = uncertain_high
     return aggregated

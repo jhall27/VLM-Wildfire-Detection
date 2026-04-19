@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
@@ -65,11 +66,26 @@ def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Pat
     return pd.DataFrame(written_rows)
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Create fused masks from VLM refinement decisions.")
+    parser.add_argument("--vlm-results", default="vlm_outputs/qwen_pilot_results.csv")
+    parser.add_argument("--sam-dir", default="data/sam_masks")
+    parser.add_argument("--fused-dir", default="data/fused_masks")
+    parser.add_argument("--output-csv", default="vlm_outputs/fused_refinement_decisions.csv")
+    parser.add_argument("--accept-threshold", type=int, default=70)
+    parser.add_argument("--reject-threshold", type=int, default=40)
+    parser.add_argument("--region-accept-threshold", type=int, default=60)
+    parser.add_argument("--uncertain-low", type=int, default=40)
+    parser.add_argument("--uncertain-high", type=int, default=70)
+    return parser.parse_args()
+
+
 def main() -> None:
-    vlm_csv = Path("vlm_outputs/qwen_pilot_results.csv")
-    sam_dir = Path("data/sam_masks")
-    fused_dir = Path("data/fused_masks")
-    refinement_csv = Path("vlm_outputs/fused_refinement_decisions.csv")
+    args = parse_args()
+    vlm_csv = Path(args.vlm_results)
+    sam_dir = Path(args.sam_dir)
+    fused_dir = Path(args.fused_dir)
+    refinement_csv = Path(args.output_csv)
 
     if not vlm_csv.exists():
         print(f"Error: VLM results not found: {vlm_csv}")
@@ -81,6 +97,13 @@ def main() -> None:
     print(f"VLM results : {vlm_csv}")
     print(f"SAM masks   : {sam_dir}")
     print(f"Fused masks : {fused_dir}")
+    print(
+        "Thresholds  : "
+        f"accept>={args.accept_threshold}, "
+        f"reject<={args.reject_threshold}, "
+        f"region_accept>={args.region_accept_threshold}, "
+        f"uncertain=[{args.uncertain_low},{args.uncertain_high})"
+    )
     print()
 
     # Start from a complete mirror of the teacher masks so the fused label set
@@ -93,7 +116,14 @@ def main() -> None:
 
     # Parse the saved Qwen outputs first, then turn them into simple actions.
     vlm_df = load_vlm_results(vlm_csv)
-    refinement_df = build_refinement_table(vlm_df)
+    refinement_df = build_refinement_table(
+        vlm_df,
+        accept_threshold=args.accept_threshold,
+        reject_threshold=args.reject_threshold,
+        region_accept_threshold=args.region_accept_threshold,
+        uncertain_low=args.uncertain_low,
+        uncertain_high=args.uncertain_high,
+    )
     written_df = write_fused_masks(refinement_df, sam_dir, fused_dir)
 
     written_df.to_csv(refinement_csv, index=False)

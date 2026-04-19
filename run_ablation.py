@@ -33,6 +33,24 @@ def run_command(cmd: list[str], dry_run: bool) -> None:
     subprocess.run(cmd, check=True)
 
 
+def refinement_command(args: argparse.Namespace) -> list[str]:
+    cmd = [
+        sys.executable,
+        "generate_fused_masks.py",
+        "--accept-threshold",
+        str(args.accept_threshold),
+        "--reject-threshold",
+        str(args.reject_threshold),
+        "--region-accept-threshold",
+        str(args.region_accept_threshold),
+        "--uncertain-low",
+        str(args.uncertain_low),
+        "--uncertain-high",
+        str(args.uncertain_high),
+    ]
+    return cmd
+
+
 def train_command(args: argparse.Namespace, label_mode: str, exp_name: str) -> list[str]:
     cmd = [
         sys.executable,
@@ -102,12 +120,18 @@ def main() -> None:
     parser.add_argument("--test-val", action="store_true")
     parser.add_argument("--skip-refinement-build", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--accept-threshold", type=int, default=70)
+    parser.add_argument("--reject-threshold", type=int, default=40)
+    parser.add_argument("--region-accept-threshold", type=int, default=60)
+    parser.add_argument("--uncertain-low", type=int, default=40)
+    parser.add_argument("--uncertain-high", type=int, default=70)
+    parser.add_argument("--modes", nargs="+", default=["sam", "vlm", "fused"])
     args = parser.parse_args()
     args.device = resolve_device(args.device)
 
     if not args.skip_refinement_build:
         run_command([sys.executable, "generate_vlm_masks.py"], args.dry_run)
-        run_command([sys.executable, "generate_fused_masks.py"], args.dry_run)
+        run_command(refinement_command(args), args.dry_run)
 
     modes = [
         ("sam", "baseline"),
@@ -116,6 +140,8 @@ def main() -> None:
     ]
 
     for label_mode, label in modes:
+        if label_mode not in args.modes:
+            continue
         exp_name = f"ablation_{label}_{args.model_size}"
         run_command(train_command(args, label_mode, exp_name), args.dry_run)
         checkpoint_path = Path("checkpoints") / f"{exp_name}.pt"
