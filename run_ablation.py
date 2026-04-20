@@ -126,8 +126,13 @@ def main() -> None:
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
     parser.add_argument("--modes", nargs="+", default=["sam", "vlm", "fused"])
+    # Backward-friendly aliases for common CLI mistakes.
+    parser.add_argument("--mode", choices=["sam", "vlm", "fused"], default=None)
+    parser.add_argument("--exp", default="ablation")
     args = parser.parse_args()
     args.device = resolve_device(args.device)
+    if args.mode:
+        args.modes = [args.mode]
 
     if not args.skip_refinement_build:
         run_command([sys.executable, "generate_vlm_masks.py"], args.dry_run)
@@ -142,7 +147,7 @@ def main() -> None:
     for label_mode, label in modes:
         if label_mode not in args.modes:
             continue
-        exp_name = f"ablation_{label}_{args.model_size}"
+        exp_name = f"{args.exp}_{label}_{args.model_size}"
         run_command(train_command(args, label_mode, exp_name), args.dry_run)
         checkpoint_path = Path("checkpoints") / f"{exp_name}.pt"
         run_command(eval_command(args, checkpoint_path, label), args.dry_run)

@@ -191,6 +191,9 @@ Create a dry-run results sheet:
 python3 vlm/run_qwen_pilot.py --mode dry-run --prompt-style all
 ```
 
+Important: dry-run output is a template only. Do not use it to generate
+`vlm_masks` or `fused_masks`; those steps now require real VLM responses.
+
 If Qwen and `transformers` are available locally, the same script can run the real pilot:
 
 ```bash
@@ -245,6 +248,12 @@ Full training version:
 
 ```bash
 python3 run_ablation.py --device mps --epochs 50 --batch-size 4 --num-workers 0
+```
+
+Single-mode example:
+
+```bash
+python3 run_ablation.py --mode vlm --device cuda --epochs 20 --batch-size 2
 ```
 
 ## Cluster Runs

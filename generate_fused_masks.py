@@ -18,6 +18,31 @@ from vlm.refinement import (
 )
 
 
+def validate_vlm_results(vlm_csv: Path) -> None:
+    """Fail early on dry-run or incomplete VLM outputs."""
+    raw_df = pd.read_csv(vlm_csv)
+    required_cols = {"prompt_style", "region_name", "status", "response"}
+    missing = required_cols - set(raw_df.columns)
+    if missing:
+        raise ValueError(f"VLM CSV is missing required columns: {sorted(missing)}")
+
+    full_frame = raw_df[raw_df["region_name"] == "full_frame"].copy()
+    if full_frame.empty:
+        raise ValueError("No full-frame rows found in VLM CSV.")
+
+    pending = full_frame[full_frame["status"] != "ok"]
+    if not pending.empty:
+        statuses = sorted(set(str(s) for s in pending["status"]))
+        raise ValueError(
+            "VLM CSV contains non-final rows for full-frame prompts "
+            f"(status={statuses}). Run a real pilot first."
+        )
+
+    empty_responses = full_frame["response"].fillna("").astype(str).str.strip().eq("")
+    if bool(empty_responses.any()):
+        raise ValueError("VLM CSV contains empty full-frame responses.")
+
+
 def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Path) -> pd.DataFrame:
     ensure_split_dirs(fused_dir)
 
@@ -115,6 +140,13 @@ def main() -> None:
     print()
 
     # Parse the saved Qwen outputs first, then turn them into simple actions.
+    try:
+        validate_vlm_results(vlm_csv)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        print("Aborting to avoid generating misleading refinement outputs.")
+        return
+
     vlm_df = load_vlm_results(vlm_csv)
     refinement_df = build_refinement_table(
         vlm_df,
