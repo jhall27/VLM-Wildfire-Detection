@@ -15,7 +15,7 @@ from torchmetrics.classification import BinaryJaccardIndex
 from itertools import cycle
 from torcheval.metrics.functional import binary_precision, binary_recall, binary_accuracy, binary_f1_score
 import pandas as pd
-from utils.experiment import ensure_dirs, get_metric_template, measure_inference_speed, save_run_config, seed_everything
+from utils.experiment import configure_torch_runtime, ensure_dirs, get_metric_template, measure_inference_speed, save_run_config, seed_everything
 
 
 def eval(model, args, loader):
@@ -173,6 +173,7 @@ def main():
     args = get_args()
     ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
     seed_everything(args.seed, deterministic=args.deterministic)
+    configure_torch_runtime(args.disable_cudnn)
     save_run_config(args, os.path.join(args.log_dir, "eval_config.json"))
     print(args)
     # Eval is simpler to manage one image at a time.

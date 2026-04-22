@@ -76,6 +76,8 @@ def train_command(args: argparse.Namespace, label_mode: str, exp_name: str) -> l
         cmd.extend(["--max-batches", str(args.max_batches)])
     if args.deterministic:
         cmd.append("--deterministic")
+    if args.disable_cudnn:
+        cmd.append("--disable-cudnn")
     if args.test_val:
         cmd.append("--test-val")
     return cmd
@@ -104,6 +106,8 @@ def eval_command(args: argparse.Namespace, checkpoint_path: Path, label: str) ->
         cmd.extend(["--max-batches", str(args.max_batches)])
     if args.deterministic:
         cmd.append("--deterministic")
+    if args.disable_cudnn:
+        cmd.append("--disable-cudnn")
     return cmd
 
 
@@ -117,6 +121,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-batches", type=int, default=0)
     parser.add_argument("--deterministic", action="store_true")
+    parser.add_argument("--disable-cudnn", action="store_true")
     parser.add_argument("--test-val", action="store_true")
     parser.add_argument("--skip-refinement-build", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

@@ -34,6 +34,7 @@ def get_args():
     parser.add_argument('--input-image', default='data/images/test/15_2161.jpeg', help='Input image for visualisation.')
     parser.add_argument('--seed', default=42, type=int, help='Random seed for reproducible experiments.')
     parser.add_argument('--deterministic', action='store_true', help='Enable deterministic PyTorch/CuDNN settings.')
+    parser.add_argument('--disable-cudnn', action='store_true', help='Disable cuDNN and use plain CUDA kernels. Useful on cluster nodes where cuDNN init fails.')
     parser.add_argument('--metrics-output', default='eval_results.csv', help='CSV path for evaluation metrics.')
     parser.add_argument('--results-template', default='weekly_results_template.csv', help='CSV path for the weekly results template.')
     parser.add_argument('--speed-warmup', default=5, type=int, help='Warmup iterations for inference speed measurement.')

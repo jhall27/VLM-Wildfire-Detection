@@ -11,7 +11,7 @@ from models.pidnet import get_seg_model
 from pidnet_utils.configs import config
 from pidnet_utils.criterion import BondaryLoss
 from pidnet_utils.utils import FullModel
-from utils.experiment import ensure_dirs, save_run_config, seed_everything
+from utils.experiment import configure_torch_runtime, ensure_dirs, save_run_config, seed_everything
 import einops
 
 
@@ -124,6 +124,7 @@ def main():
     # Make folders first so logs/checkpoints do not fail on a fresh clone.
     ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
     seed_everything(args.seed, deterministic=args.deterministic)
+    configure_torch_runtime(args.disable_cudnn)
     
     # Keep the original teacher labels as the default, then swap in the
     # VLM-refined or fused labels only when we explicitly ask for them.

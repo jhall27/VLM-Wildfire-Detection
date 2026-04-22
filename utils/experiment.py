@@ -27,6 +27,12 @@ def seed_everything(seed: int, deterministic: bool = True) -> None:
     torch.backends.cudnn.deterministic = deterministic
 
 
+def configure_torch_runtime(disable_cudnn: bool = False) -> None:
+    # Some cluster nodes expose CUDA but fail when cuDNN initializes.
+    if disable_cudnn:
+        torch.backends.cudnn.enabled = False
+
+
 def save_run_config(args, output_path: str) -> None:
     # Save the exact arguments used for a run so it is easy to repeat later.
     with open(output_path, "w", encoding="utf-8") as handle:
