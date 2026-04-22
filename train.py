@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import os
 import pandas as pd
+from tqdm import tqdm
 from utils.get_args import get_args
 from eval import eval
 from models.pidnet import get_seg_model
@@ -61,7 +62,17 @@ def train(model, trainloader, valloader, args):
         epoch_loss = 0
         model.train()
         optim.zero_grad()
-        for i, batch in enumerate(trainloader):
+        total_batches = len(trainloader)
+        progress = tqdm(
+            enumerate(trainloader),
+            total=total_batches,
+            desc=f"Epoch {epoch + 1}/{args.epochs}",
+            leave=False,
+            disable=args.verbose,
+        )
+        last_batch_idx = -1
+        for i, batch in progress:
+            last_batch_idx = i
             # For quick smoke tests we can skip the train loop and just check validation.
             if args.test_val:
                 break
@@ -86,11 +97,16 @@ def train(model, trainloader, valloader, args):
             loss.backward()
             optim.step()
             optim.zero_grad()
+            progress.set_postfix(loss=f"{last_loss:.4f}")
         
             if i % 10 == 0 and args.verbose:
                 print('Epoch: {:d}, batch: {:d}, Last training loss: {:.4f}'.format(epoch, i, last_loss))
-        
-        print('Finished epoch: {:d}, training loss: {:.7f}. validating'.format(epoch, (epoch_loss/(i+1))))
+
+        trained_batches = 0 if last_batch_idx < 0 or args.test_val else last_batch_idx + 1
+        if args.max_batches:
+            trained_batches = min(trained_batches, args.max_batches)
+        mean_train_loss = 0.0 if trained_batches == 0 else (epoch_loss / trained_batches)
+        print('Finished epoch: {:d}, training loss: {:.7f}. validating'.format(epoch, mean_train_loss))
         epoch_loss = 0
         # Validate
         loss_dict = eval(model, args, valloader)
@@ -108,7 +124,6 @@ def main():
     # Make folders first so logs/checkpoints do not fail on a fresh clone.
     ensure_dirs([args.output_dir, args.log_dir, args.weight_dir])
     seed_everything(args.seed, deterministic=args.deterministic)
-    save_run_config(args, os.path.join(args.log_dir, args.exp + "_config.json"))
     
     # Keep the original teacher labels as the default, then swap in the
     # VLM-refined or fused labels only when we explicitly ask for them.
@@ -116,6 +131,10 @@ def main():
         args.sup_dir = 'vlm_masks'
     elif args.label_mode == 'fused':
         args.sup_dir = 'fused_masks'
+
+    # Save the resolved config after label-mode routing so logs show the
+    # actual supervision directory used for the run.
+    save_run_config(args, os.path.join(args.log_dir, args.exp + "_config.json"))
     
     print(args)
     # Model size stays configurable so we can compare S / M / L later.

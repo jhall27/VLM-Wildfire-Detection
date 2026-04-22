@@ -117,10 +117,10 @@ def decide_refinement_action(
     if (
         yes_no_smoke == 0
         and confidence_label in {"background", "cloud_or_fog", "uncertain", ""}
-        and (confidence_score is None or confidence_score <= reject_threshold)
+        and (confidence_score is None or confidence_score >= reject_threshold)
         and region_smoke == 0
     ):
-        return "reject", "All full-frame prompts leaned away from smoke."
+        return "reject", "All full-frame prompts leaned away from smoke with confident negative evidence."
 
     if (
         yes_no_smoke == 1

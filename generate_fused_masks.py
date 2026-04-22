@@ -91,6 +91,21 @@ def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Pat
     return pd.DataFrame(written_rows)
 
 
+def print_refinement_summary(written_df: pd.DataFrame) -> None:
+    print("\nRefinement action counts:")
+    if written_df.empty:
+        print("  No refinement rows were written.")
+        return
+
+    for action, count in written_df["action"].value_counts().items():
+        print(f"  {action}: {count}")
+
+    changed = written_df["action"].isin(["reject", "down_weight"]).sum()
+    unchanged = written_df["action"].isin(["accept", "uncertain"]).sum()
+    print(f"\nMasks changed from teacher labels: {changed}")
+    print(f"Masks kept as teacher labels    : {unchanged}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create fused masks from VLM refinement decisions.")
     parser.add_argument("--vlm-results", default="vlm_outputs/qwen_pilot_results.csv")
@@ -169,6 +184,7 @@ def main() -> None:
         "mask_written",
         "write_note",
     ]].to_string(index=False))
+    print_refinement_summary(written_df)
 
 
 if __name__ == "__main__":

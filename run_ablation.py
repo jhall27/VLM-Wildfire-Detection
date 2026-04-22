@@ -125,6 +125,12 @@ def main() -> None:
     parser.add_argument("--region-accept-threshold", type=int, default=60)
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
+    parser.add_argument(
+        "--eval-checkpoint",
+        choices=["miou", "loss"],
+        default="miou",
+        help="Which saved checkpoint to evaluate after training. Default=miou for consistency with threshold-sweep runs.",
+    )
     parser.add_argument("--modes", nargs="+", default=["sam", "vlm", "fused"])
     # Backward-friendly aliases for common CLI mistakes.
     parser.add_argument("--mode", choices=["sam", "vlm", "fused"], default=None)
@@ -149,7 +155,8 @@ def main() -> None:
             continue
         exp_name = f"{args.exp}_{label}_{args.model_size}"
         run_command(train_command(args, label_mode, exp_name), args.dry_run)
-        checkpoint_path = Path("checkpoints") / f"{exp_name}.pt"
+        suffix = "_miou.pt" if args.eval_checkpoint == "miou" else ".pt"
+        checkpoint_path = Path("checkpoints") / f"{exp_name}{suffix}"
         run_command(eval_command(args, checkpoint_path, label), args.dry_run)
 
 
