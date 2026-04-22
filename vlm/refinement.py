@@ -61,6 +61,14 @@ def make_eroded_mask(source_mask: Path, output_path: Path, kernel_size: int = 5)
     Image.fromarray(eroded).save(output_path)
 
 
+def get_mask_area(stem: str, sam_dir: Path) -> int:
+    source_mask, _ = find_mask_split(stem, sam_dir)
+    if source_mask is None:
+        return 0
+    mask = np.array(Image.open(source_mask).convert("L")) > 0
+    return int(mask.sum())
+
+
 def aggregate_full_frame_rows(vlm_df: pd.DataFrame) -> pd.DataFrame:
     # For the first pass, keep decisions simple and image-level using full-frame rows.
     full_frame = vlm_df[vlm_df["region_name"] == "full_frame"].copy()
@@ -113,29 +121,44 @@ def decide_refinement_action(
     region_stage = str(row.get("region_stage") or "").lower()
     region_confounder = str(row.get("region_confounder") or "").lower()
     region_confidence = row.get("region_confidence")
-
-    if (
-        yes_no_smoke == 0
-        and confidence_label in {"background", "cloud_or_fog", "uncertain", ""}
-        and (confidence_score is None or confidence_score >= reject_threshold)
-        and region_smoke == 0
-    ):
-        return "reject", "All full-frame prompts leaned away from smoke with confident negative evidence."
-
-    if (
+    negative_labels = {"background", "cloud_or_fog", "uncertain", ""}
+    atmospheric_confounders = {"haze", "cloud", "fog", "background", "none", ""}
+    negative_full_frame = yes_no_smoke == 0 and confidence_label in negative_labels
+    confident_negative = confidence_score is None or confidence_score >= reject_threshold
+    strong_positive = (
         yes_no_smoke == 1
         and confidence_label == "smoke"
         and (confidence_score or 0) >= accept_threshold
         and region_smoke == 1
         and (region_confidence or 0) >= region_accept_threshold
+    )
+
+    if (
+        negative_full_frame
+        and confident_negative
+        and region_smoke == 0
     ):
+        return "reject", "All full-frame prompts leaned away from smoke with confident negative evidence."
+
+    if (
+        negative_full_frame
+        and confident_negative
+        and region_smoke == 1
+        and region_confounder in atmospheric_confounders
+    ):
+        return "reject", "Full-frame prompts rejected smoke and region reasoning only suggested an atmospheric confounder."
+
+    if strong_positive:
         return "accept", "All full-frame prompts strongly supported smoke."
 
     if (
-        confidence_label == "smoke"
+        yes_no_smoke == 1
+        and confidence_label == "smoke"
         and uncertain_low <= (confidence_score or 0) < uncertain_high
     ) or (
-        region_smoke == 1
+        yes_no_smoke == 1
+        and confidence_label == "smoke"
+        and region_smoke == 1
         and (region_stage == "early" or region_confounder in {"haze", "cloud", "fog"})
     ):
         return "down_weight", "Smoke was detected, but confidence/confounders suggest caution."
@@ -146,6 +169,7 @@ def decide_refinement_action(
 
 def build_refinement_table(
     vlm_df: pd.DataFrame,
+    sam_dir: Path | None = None,
     accept_threshold: int = 70,
     reject_threshold: int = 40,
     region_accept_threshold: int = 60,
@@ -153,6 +177,10 @@ def build_refinement_table(
     uncertain_high: int = 70,
 ) -> pd.DataFrame:
     aggregated = aggregate_full_frame_rows(vlm_df)
+    if sam_dir is not None:
+        aggregated["mask_area"] = aggregated["image_stem"].apply(lambda stem: get_mask_area(stem, sam_dir))
+    else:
+        aggregated["mask_area"] = 0
     actions = aggregated.apply(
         decide_refinement_action,
         axis=1,

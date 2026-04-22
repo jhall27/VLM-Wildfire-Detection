@@ -6,6 +6,9 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+import cv2
+import numpy as np
+from PIL import Image
 
 from eval_vlm import load_vlm_results
 from vlm.refinement import (
@@ -43,7 +46,12 @@ def validate_vlm_results(vlm_csv: Path) -> None:
         raise ValueError("VLM CSV contains empty full-frame responses.")
 
 
-def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Path) -> pd.DataFrame:
+def write_fused_masks(
+    refinement_df: pd.DataFrame,
+    sam_dir: Path,
+    fused_dir: Path,
+    min_component_area: int,
+) -> pd.DataFrame:
     ensure_split_dirs(fused_dir)
 
     written_rows = []
@@ -71,10 +79,27 @@ def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Pat
             note = "Blank mask written."
         elif action == "down_weight":
             # Down-weight = keep the region, but shrink it to be more conservative.
-            make_eroded_mask(sam_mask_path, output_path)
-            note = "Eroded mask written."
+            note = write_component_filtered_mask(
+                sam_mask_path,
+                output_path,
+                min_component_area=min_component_area,
+                erode=True,
+            )
+            if "0 positive pixels remain" in note:
+                note = "Component-filtered mask removed all pixels."
+        elif action == "uncertain":
+            # For mixed signals, keep only meaningful connected regions instead of
+            # blindly copying every tiny SAM artifact.
+            note = write_component_filtered_mask(
+                sam_mask_path,
+                output_path,
+                min_component_area=min_component_area,
+                erode=False,
+            )
+            if "0 positive pixels remain" in note:
+                note = "Component-filtered mask removed all pixels."
         else:
-            # Accept or uncertain both keep the original teacher mask for now.
+            # Accept keeps the original teacher mask when smoke evidence is strongest.
             output_path.write_bytes(sam_mask_path.read_bytes())
             note = "Original SAM mask copied."
 
@@ -89,6 +114,31 @@ def write_fused_masks(refinement_df: pd.DataFrame, sam_dir: Path, fused_dir: Pat
         )
 
     return pd.DataFrame(written_rows)
+
+
+def remove_small_components(mask: np.ndarray, min_component_area: int) -> np.ndarray:
+    if min_component_area <= 0:
+        return mask
+
+    binary = (mask > 0).astype(np.uint8)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+    cleaned = np.zeros_like(binary)
+    for label_idx in range(1, num_labels):
+        area = stats[label_idx, cv2.CC_STAT_AREA]
+        if area >= min_component_area:
+            cleaned[labels == label_idx] = 1
+    return (cleaned * 255).astype(np.uint8)
+
+
+def write_component_filtered_mask(source_mask: Path, output_path: Path, min_component_area: int, erode: bool = False) -> str:
+    mask = np.array(Image.open(source_mask).convert("L"))
+    cleaned = remove_small_components(mask, min_component_area)
+    if erode and cleaned.any():
+        kernel = np.ones((5, 5), np.uint8)
+        cleaned = cv2.erode(cleaned, kernel, iterations=1)
+    Image.fromarray(cleaned).save(output_path)
+    remaining = int((cleaned > 0).sum())
+    return f"Component-filtered mask written ({remaining} positive pixels remain)."
 
 
 def print_refinement_summary(written_df: pd.DataFrame) -> None:
@@ -117,6 +167,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--region-accept-threshold", type=int, default=60)
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
+    parser.add_argument("--min-component-area", type=int, default=120)
     return parser.parse_args()
 
 
@@ -142,7 +193,8 @@ def main() -> None:
         f"accept>={args.accept_threshold}, "
         f"reject<={args.reject_threshold}, "
         f"region_accept>={args.region_accept_threshold}, "
-        f"uncertain=[{args.uncertain_low},{args.uncertain_high})"
+        f"uncertain=[{args.uncertain_low},{args.uncertain_high}), "
+        f"min_component>={args.min_component_area}"
     )
     print()
 
@@ -165,13 +217,19 @@ def main() -> None:
     vlm_df = load_vlm_results(vlm_csv)
     refinement_df = build_refinement_table(
         vlm_df,
+        sam_dir=sam_dir,
         accept_threshold=args.accept_threshold,
         reject_threshold=args.reject_threshold,
         region_accept_threshold=args.region_accept_threshold,
         uncertain_low=args.uncertain_low,
         uncertain_high=args.uncertain_high,
     )
-    written_df = write_fused_masks(refinement_df, sam_dir, fused_dir)
+    written_df = write_fused_masks(
+        refinement_df,
+        sam_dir,
+        fused_dir,
+        min_component_area=args.min_component_area,
+    )
 
     written_df.to_csv(refinement_csv, index=False)
     print(f"Saved refinement decisions: {refinement_csv}")

@@ -47,6 +47,8 @@ def refinement_command(args: argparse.Namespace) -> list[str]:
         str(args.uncertain_low),
         "--uncertain-high",
         str(args.uncertain_high),
+        "--min-component-area",
+        str(args.min_component_area),
     ]
     return cmd
 
@@ -130,6 +132,7 @@ def main() -> None:
     parser.add_argument("--region-accept-threshold", type=int, default=60)
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
+    parser.add_argument("--min-component-area", type=int, default=120)
     parser.add_argument(
         "--eval-checkpoint",
         choices=["miou", "loss"],
