@@ -15,21 +15,22 @@ from utils.experiment import configure_torch_runtime, ensure_dirs, save_run_conf
 import einops
 
 
-def write_logs(epoch, val_metrics, model, optim, args):
+def write_logs(epoch, train_loss, val_metrics, model, optim, args):
     # Pull out the validation numbers we want to keep after each epoch.
     val_loss = val_metrics['mean_val_loss']
     miou = val_metrics['mean_iou']
     precision = val_metrics.get('mean_precision', 0)
     recall = val_metrics.get('mean_recall', 0)
     f1 = val_metrics.get('mean_f1', 0)
+    lr = optim.param_groups[0]['lr']
     # Create a new log file if there isn't one
     try:
         if epoch == 0:
-            df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU', 'precision', 'recall', 'f1'])
+            df = pd.DataFrame(columns=['epoch', 'train_loss', 'val_loss', 'mIoU', 'precision', 'recall', 'f1', 'lr'])
         else:
             df = pd.read_csv(os.path.join(args.log_dir, args.exp+'.csv'))
     except:
-        df = pd.DataFrame(columns=['epoch', 'val_loss', 'mIoU', 'precision', 'recall', 'f1'])
+        df = pd.DataFrame(columns=['epoch', 'train_loss', 'val_loss', 'mIoU', 'precision', 'recall', 'f1', 'lr'])
 
     # Save weights if the best loss is achieved
     if epoch == 0 or val_loss < np.amin(df['val_loss']):
@@ -40,7 +41,7 @@ def write_logs(epoch, val_metrics, model, optim, args):
         save_weights(model, optim, args, miou=True)
 
     # Add new loss to df
-    df.loc[len(df)] = [epoch, val_loss, miou, precision, recall, f1]
+    df.loc[len(df)] = [epoch, train_loss, val_loss, miou, precision, recall, f1, lr]
     # Save logs
     df.to_csv(os.path.join(args.log_dir, args.exp+'.csv'), index=False)
 
@@ -55,9 +56,18 @@ def save_weights(model, optim, args, miou=False):
         torch.save(optim.state_dict(), os.path.join(args.weight_dir, args.exp+'_optim.pt'))
 
 
+def resolve_training_hparams(args):
+    # Fused labels are noisier than the plain SAM baseline, so use gentler defaults.
+    lr = args.lr if args.lr is not None else (5e-5 if args.label_mode == 'fused' else 1e-4)
+    grad_clip = args.grad_clip if args.grad_clip is not None else (1.0 if args.label_mode == 'fused' else 0.0)
+    return lr, args.weight_decay, grad_clip
+
+
 def train(model, trainloader, valloader, args):
-    optim = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    lr, weight_decay, grad_clip = resolve_training_hparams(args)
+    optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     print('Starting training')
+    print('Optimizer settings: lr={:.6g}, weight_decay={:.6g}, grad_clip={:.3f}'.format(lr, weight_decay, grad_clip))
     for epoch in range(args.epochs):
         epoch_loss = 0
         model.train()
@@ -95,9 +105,12 @@ def train(model, trainloader, valloader, args):
             last_loss = loss.item()
             epoch_loss += last_loss
             loss.backward()
+            if grad_clip and grad_clip > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             optim.step()
             optim.zero_grad()
-            progress.set_postfix(loss=f"{last_loss:.4f}")
+            running_loss = epoch_loss / (i + 1)
+            progress.set_postfix(loss=f"{last_loss:.4f}", avg=f"{running_loss:.4f}")
         
             if i % 10 == 0 and args.verbose:
                 print('Epoch: {:d}, batch: {:d}, Last training loss: {:.4f}'.format(epoch, i, last_loss))
@@ -115,7 +128,7 @@ def train(model, trainloader, valloader, args):
         print('Finished validating, validation loss: {:.7f}'.format(val_loss))
         print('Mean index over union: {:.7f}'.format(miou))
         # Write logs and save weights
-        write_logs(epoch, loss_dict, model, optim, args)
+        write_logs(epoch, mean_train_loss, loss_dict, model, optim, args)
 
 
 def main():
@@ -162,8 +175,15 @@ def main():
                      include_id=args.include_id,
                      args=args)
 
-    trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    valloader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    dataloader_kwargs = {
+        'batch_size': args.batch_size,
+        'num_workers': args.num_workers,
+        'pin_memory': args.device.startswith('cuda'),
+    }
+    if args.num_workers > 0:
+        dataloader_kwargs['persistent_workers'] = True
+    trainloader = DataLoader(trainset, shuffle=True, **dataloader_kwargs)
+    valloader = DataLoader(valset, shuffle=False, **dataloader_kwargs)
     if args.debug_val:
         loss_dict = eval(model, args, valloader)
         print(loss_dict)

@@ -21,7 +21,7 @@ from vlm.refinement import (
 )
 
 
-def validate_vlm_results(vlm_csv: Path) -> None:
+def validate_vlm_results(vlm_csv: Path, refinement_strategy: str) -> None:
     """Fail early on dry-run or incomplete VLM outputs."""
     raw_df = pd.read_csv(vlm_csv)
     required_cols = {"prompt_style", "region_name", "status", "response"}
@@ -30,20 +30,26 @@ def validate_vlm_results(vlm_csv: Path) -> None:
         raise ValueError(f"VLM CSV is missing required columns: {sorted(missing)}")
 
     full_frame = raw_df[raw_df["region_name"] == "full_frame"].copy()
-    if full_frame.empty:
+    if refinement_strategy == "full_frame_only" and full_frame.empty:
         raise ValueError("No full-frame rows found in VLM CSV.")
 
-    pending = full_frame[full_frame["status"] != "ok"]
-    if not pending.empty:
-        statuses = sorted(set(str(s) for s in pending["status"]))
-        raise ValueError(
-            "VLM CSV contains non-final rows for full-frame prompts "
-            f"(status={statuses}). Run a real pilot first."
-        )
+    if not full_frame.empty:
+        pending = full_frame[full_frame["status"] != "ok"]
+        if not pending.empty:
+            statuses = sorted(set(str(s) for s in pending["status"]))
+            raise ValueError(
+                "VLM CSV contains non-final rows for full-frame prompts "
+                f"(status={statuses}). Run a real pilot first."
+            )
 
-    empty_responses = full_frame["response"].fillna("").astype(str).str.strip().eq("")
-    if bool(empty_responses.any()):
-        raise ValueError("VLM CSV contains empty full-frame responses.")
+        empty_responses = full_frame["response"].fillna("").astype(str).str.strip().eq("")
+        if bool(empty_responses.any()):
+            raise ValueError("VLM CSV contains empty full-frame responses.")
+
+    if refinement_strategy == "hybrid":
+        teacher_crop = raw_df[raw_df["region_name"] == "teacher_box_context"].copy()
+        if teacher_crop.empty:
+            raise ValueError("No teacher_box_context rows found in VLM CSV for hybrid refinement.")
 
 
 def write_fused_masks(
@@ -103,6 +109,8 @@ def write_fused_masks(
             output_path.write_bytes(sam_mask_path.read_bytes())
             note = "Original SAM mask copied."
 
+        original_mask_area, refined_mask_area, changed_from_teacher = compare_masks(sam_mask_path, output_path)
+
         written_rows.append(
             {
                 **row.to_dict(),
@@ -110,6 +118,10 @@ def write_fused_masks(
                 "mask_written": True,
                 "mask_path": str(output_path),
                 "write_note": note,
+                "original_mask_area": original_mask_area,
+                "refined_mask_area": refined_mask_area,
+                "pixels_removed": original_mask_area - refined_mask_area,
+                "changed_from_teacher": changed_from_teacher,
             }
         )
 
@@ -141,6 +153,15 @@ def write_component_filtered_mask(source_mask: Path, output_path: Path, min_comp
     return f"Component-filtered mask written ({remaining} positive pixels remain)."
 
 
+def compare_masks(source_mask: Path, output_path: Path) -> tuple[int, int, bool]:
+    original = np.array(Image.open(source_mask).convert("L")) > 0
+    refined = np.array(Image.open(output_path).convert("L")) > 0
+    original_area = int(original.sum())
+    refined_area = int(refined.sum())
+    changed = not np.array_equal(original, refined)
+    return original_area, refined_area, changed
+
+
 def print_refinement_summary(written_df: pd.DataFrame) -> None:
     print("\nRefinement action counts:")
     if written_df.empty:
@@ -150,10 +171,19 @@ def print_refinement_summary(written_df: pd.DataFrame) -> None:
     for action, count in written_df["action"].value_counts().items():
         print(f"  {action}: {count}")
 
-    changed = written_df["action"].isin(["reject", "down_weight"]).sum()
-    unchanged = written_df["action"].isin(["accept", "uncertain"]).sum()
+    changed = int(written_df["changed_from_teacher"].fillna(False).sum())
+    unchanged = int((~written_df["changed_from_teacher"].fillna(False)).sum())
+    blanked = int(written_df["refined_mask_area"].fillna(0).eq(0).sum())
+    shrunk = int(
+        (
+            written_df["refined_mask_area"].fillna(0) > 0
+        &   (written_df["refined_mask_area"].fillna(0) < written_df["original_mask_area"].fillna(0))
+        ).sum()
+    )
     print(f"\nMasks changed from teacher labels: {changed}")
     print(f"Masks kept as teacher labels    : {unchanged}")
+    print(f"Masks ending up blank           : {blanked}")
+    print(f"Masks shrunk but not blanked    : {shrunk}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -168,6 +198,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
     parser.add_argument("--min-component-area", type=int, default=120)
+    parser.add_argument("--tiny-mask-threshold", type=int, default=120)
+    parser.add_argument("--down-weight-min-area", type=int, default=256)
+    parser.add_argument("--refinement-strategy", choices=["hybrid", "full_frame_only"], default="hybrid")
     return parser.parse_args()
 
 
@@ -194,7 +227,10 @@ def main() -> None:
         f"reject<={args.reject_threshold}, "
         f"region_accept>={args.region_accept_threshold}, "
         f"uncertain=[{args.uncertain_low},{args.uncertain_high}), "
-        f"min_component>={args.min_component_area}"
+        f"min_component>={args.min_component_area}, "
+        f"tiny_mask<{args.tiny_mask_threshold}, "
+        f"down_weight_min>={args.down_weight_min_area}, "
+        f"strategy={args.refinement_strategy}"
     )
     print()
 
@@ -208,7 +244,7 @@ def main() -> None:
 
     # Parse the saved Qwen outputs first, then turn them into simple actions.
     try:
-        validate_vlm_results(vlm_csv)
+        validate_vlm_results(vlm_csv, args.refinement_strategy)
     except ValueError as exc:
         print(f"Error: {exc}")
         print("Aborting to avoid generating misleading refinement outputs.")
@@ -223,6 +259,9 @@ def main() -> None:
         region_accept_threshold=args.region_accept_threshold,
         uncertain_low=args.uncertain_low,
         uncertain_high=args.uncertain_high,
+        tiny_mask_threshold=args.tiny_mask_threshold,
+        down_weight_min_area=args.down_weight_min_area,
+        refinement_strategy=args.refinement_strategy,
     )
     written_df = write_fused_masks(
         refinement_df,

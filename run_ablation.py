@@ -49,6 +49,12 @@ def refinement_command(args: argparse.Namespace) -> list[str]:
         str(args.uncertain_high),
         "--min-component-area",
         str(args.min_component_area),
+        "--tiny-mask-threshold",
+        str(args.tiny_mask_threshold),
+        "--down-weight-min-area",
+        str(args.down_weight_min_area),
+        "--refinement-strategy",
+        args.refinement_strategy,
     ]
     return cmd
 
@@ -74,6 +80,11 @@ def train_command(args: argparse.Namespace, label_mode: str, exp_name: str) -> l
         "--seed",
         str(args.seed),
     ]
+    if args.lr is not None:
+        cmd.extend(["--lr", str(args.lr)])
+    cmd.extend(["--weight-decay", str(args.weight_decay)])
+    if args.grad_clip is not None:
+        cmd.extend(["--grad-clip", str(args.grad_clip)])
     if args.max_batches:
         cmd.extend(["--max-batches", str(args.max_batches)])
     if args.deterministic:
@@ -133,6 +144,12 @@ def main() -> None:
     parser.add_argument("--uncertain-low", type=int, default=40)
     parser.add_argument("--uncertain-high", type=int, default=70)
     parser.add_argument("--min-component-area", type=int, default=120)
+    parser.add_argument("--tiny-mask-threshold", type=int, default=120)
+    parser.add_argument("--down-weight-min-area", type=int, default=256)
+    parser.add_argument("--refinement-strategy", choices=["hybrid", "full_frame_only"], default="hybrid")
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument("--grad-clip", type=float, default=None)
     parser.add_argument(
         "--eval-checkpoint",
         choices=["miou", "loss"],
